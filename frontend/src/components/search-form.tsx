@@ -37,7 +37,7 @@ const schema = z.object({
   area_unit: z.enum(["m2", "py"]),
   building_name: z.string().optional(),
   jimok: z.string().optional(),
-  months_back: z.coerce.number().int().min(0).max(36),
+  months_back: z.number().int().min(0).max(36),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -187,7 +187,7 @@ export function SearchForm({ onSubmit, loading }: Props) {
         <label>
           조회 기간 <span className="optional">(선택)</span>
         </label>
-        <select {...register("months_back")}>
+        <select {...register("months_back", { valueAsNumber: true })}>
           {MONTHS_OPTIONS.map((m) => (
             <option key={m.value} value={m.value}>
               {m.label}
