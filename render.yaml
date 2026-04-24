@@ -1,0 +1,35 @@
+# Render.com 배포 설정 (Infrastructure as Code)
+# https://render.com/docs/blueprint-spec
+#
+# 이 파일은 repo 를 Render 에 연결하면 자동으로 인식됩니다.
+# 환경변수(secret) 는 대시보드에서 직접 입력.
+
+services:
+  - type: web
+    name: real-estate-price-api
+    runtime: python
+    plan: free
+    region: singapore                 # 한국에서 제일 가까운 리전 (free 플랜 가능)
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # 운영 시 실제 프론트 도메인으로 덮어쓸 것 (콤마 구분)
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # 공공데이터포털
+      - key: DATA_GO_KR_API_KEY
+        sync: false
+      # 카카오 REST (백엔드 지오코딩용, 프론트 JS 키와 별개)
+      - key: KAKAO_REST_API_KEY
+        sync: false
+      # 행정안전부 도로명주소
+      - key: JUSO_API_KEY
+        sync: false
+      # 건축물대장
+      - key: BLDG_REG_API_KEY
+        sync: false
+      # VWorld (법정동코드)
+      - key: VWORLD_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.7"

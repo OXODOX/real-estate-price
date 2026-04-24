@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>부동산 실거래가 조회</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+                 "Noto Sans KR", "Malgun Gothic", sans-serif;
+    background: #f5f7fa;
+    color: #222;
+    line-height: 1.5;
+    padding: 20px;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    padding: 32px 0 24px;
+  }
+  header h1 {
+    font-size: 28px;
+    color: #1a1a1a;
+    margin-bottom: 8px;
+  }
+  header p { color: #666; font-size: 14px; }
+
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 6px;
+  }
+  .form-group label .required { color: #e33; }
+  .form-group label .optional { color: #999; font-weight: 400; }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #4a7cf7;
+  }
+  .form-group .hint {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+  }
+
+  .row { display: flex; gap: 12px; }
+  .row .form-group { flex: 1; }
+
+  button.submit-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: #4a7cf7;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  button.submit-btn:hover:not(:disabled) { background: #3960d8; }
+  button.submit-btn:disabled { background: #aab; cursor: not-allowed; }
+
+  .loader {
+    display: none;
+    text-align: center;
+    padding: 20px;
+    color: #666;
+  }
+  .loader.show { display: block; }
+  .loader::before {
+    content: "";
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #4a7cf7;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error {
+    display: none;
+    padding: 14px;
+    background: #fee;
+    border: 1px solid #fcc;
+    border-radius: 8px;
+    color: #c33;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .error.show { display: block; }
+
+  .info-banner {
+    display: none;
+    padding: 12px 14px;
+    background: #fdecea;
+    border: 1px solid #f5c2c0;
+    border-radius: 8px;
+    color: #b3261e;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .info-banner.show { display: block; }
+
+  /* 단지 미매칭 전용 안내 박스 */
+
+  .result { display: none; }
+  .result.show { display: block; }
+
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #eee;
+  }
+  .result-header .title { font-size: 14px; color: #666; }
+  .result-header .title strong { color: #222; }
+  .result-header .avg {
+    text-align: right;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+  }
+  .result-header .avg .avg-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1c5a9e;
+  }
+  .result-header .avg .avg-meta {
+    font-size: 11px;
+    color: #888;
+  }
+
+  .confidence {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .confidence.high { background: #e6f7e6; color: #1a7e1a; }
+  .confidence.mid { background: #fff3d6; color: #a06800; }
+  .confidence.low { background: #fce6e6; color: #c33; }
+
+  .price-main {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .price-main .label { font-size: 13px; color: #888; margin-bottom: 8px; }
+  .price-main .value {
+    font-size: 36px;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: -1px;
+  }
+  .price-main .range {
+    font-size: 14px;
+    color: #666;
+    margin-top: 8px;
+  }
+
+  .meta {
+    background: #f8f9fb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 20px;
+  }
+
+  /* 거래 목록 헤더 */
+  .trans-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .trans-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+  }
+  .trans-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .trans-controls label {
+    color: #666;
+  }
+  .trans-controls select {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+  }
+
+  /* 거래 테이블 */
+  .trans-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .trans-table thead th {
+    background: #f1f3f8;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #444;
+    border-bottom: 2px solid #dde;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  .trans-table tbody tr {
+    border-bottom: 1px solid #eef;
+  }
+  .trans-table tbody tr:hover {
+    background: #f8faff;
+  }
+  .trans-table td {
+    padding: 10px 8px;
+    vertical-align: top;
+  }
+  .trans-table .price-cell {
+    font-weight: 600;
+    color: #4a7cf7;
+    white-space: nowrap;
+  }
+  .trans-table .addr-cell {
+    max-width: 200px;
+  }
+  .trans-table .addr-cell .addr-main {
+    font-weight: 600;
+    color: #222;
+  }
+  .est-tag {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #8a5a00;
+    background: #fff4d6;
+    border: 1px solid #f0d58a;
+    border-radius: 4px;
+    vertical-align: middle;
+  }
+  .trans-table .addr-cell .addr-sub {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .trans-table .area-cell {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .trans-table .area-cell .area-main {
+    font-weight: 600;
+    color: #333;
+  }
+  .trans-table .area-cell .area-sub {
+    color: #888;
+  }
+  .trans-table .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 4px;
+    margin-bottom: 2px;
+  }
+  .tag-trade { background: #e8f0fe; color: #1a56db; }
+  .tag-cancel { background: #fce8e8; color: #c33; }
+  .tag-jimok { background: #e8f5e9; color: #2e7d32; }
+  .tag-landuse { background: #fff3e0; color: #e65100; }
+  .tag-housetype { background: #f3e5f5; color: #7b1fa2; }
+  .tag-share { background: #fce4ec; color: #c62828; }
+
+  .trans-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 12px;
+  }
+
+  /* 페이지네이션 */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .pagination button {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    color: #444;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    min-width: 36px;
+    transition: all 0.15s;
+  }
+  .pagination button:hover:not(:disabled) {
+    background: #f0f4ff;
+    border-color: #4a7cf7;
+  }
+  .pagination button.active {
+    background: #4a7cf7;
+    color: #fff;
+    border-color: #4a7cf7;
+  }
+  .pagination button:disabled {
+    color: #bbb;
+    cursor: default;
+  }
+  .pagination .page-info {
+    font-size: 13px;
+    color: #666;
+    margin: 0 8px;
+  }
+
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: #999;
+    padding: 20px 0;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .card { padding: 16px; }
+    h1 { font-size: 22px; }
+    .price-main .value { font-size: 28px; }
+    .row { flex-direction: column; gap: 0; }
+    .trans-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .trans-controls { flex-wrap: wrap; gap: 6px; }
+    .result-header { flex-direction: column; gap: 12px; }
+    .result-header .avg { text-align: left; }
+    /* 모바일: 테이블을 카드형 리스트로 변환 */
+    .trans-table-wrap { overflow-x: visible; }
+    .trans-table thead { display: none; }
+    .trans-table, .trans-table tbody, .trans-table tr, .trans-table td { display: block; width: 100%; }
+    .trans-table tbody tr {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .trans-table tbody tr:hover { background: #fff; }
+    .trans-table td {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 6px 0;
+      border: none;
+      text-align: right;
+      font-size: 13px;
+    }
+    .trans-table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: #666;
+      font-size: 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .trans-table td > * { text-align: right; }
+    .trans-table .addr-cell {
+      max-width: none;
+      flex-direction: column;
+      align-items: stretch;
+      text-align: left;
+    }
+    .trans-table .addr-cell::before {
+      margin-bottom: 4px;
+    }
+    .trans-table .addr-cell .addr-main,
+    .trans-table .addr-cell .addr-sub {
+      text-align: left;
+      white-space: normal;
+    }
+    .trans-table .area-cell span { display: block; }
+    .trans-table .price-cell { font-weight: 700; }
+    .form-row, .form-grid { flex-direction: column; }
+    select, input { font-size: 16px; } /* iOS zoom 방지 */
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>부동산 실거래가 조회</h1>
+    <p>국토교통부 실거래가 공개시스템 기반 실거래 내역을 제공합니다</p>
+  </header>
+
+  <div class="card">
+    <form id="price-form">
+      <div class="form-group">
+        <label>
+          주소 <span class="required">*</span>
+        </label>
+        <input
+          type="text"
+          id="address"
+          placeholder="예: 서울 강남구 역삼동 679-13 역삼래미안"
+          required
+          autocomplete="off"
+        >
+        <span class="hint">
+          자유롭게 입력 가능 (예: "경기도 용인시 수지구 상현동", "강남구 역삼동 679-13").<br>
+          동·지번·단지명을 포함할수록 정확도가 높아집니다.
+        </span>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>
+            부동산 유형 <span class="required">*</span>
+          </label>
+          <select id="property_type" required>
+            <option value="아파트">아파트</option>
+            <option value="연립다세대">연립/다세대 (빌라)</option>
+            <option value="오피스텔">오피스텔</option>
+            <option value="단독다가구">단독/다가구</option>
+            <option value="토지">토지</option>
+            <option value="상업업무용">상업업무용</option>
+            <option value="분양권전매">아파트 분양권</option>
+            <option value="공장창고">공장/창고</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>
+            전용면적 <span class="optional">(선택)</span>
+          </label>
+          <div style="display:flex;gap:6px;">
+            <input
+              type="number"
+              id="area_m2"
+              step="0.01"
+              min="0"
+              placeholder="예: 84"
+              style="flex:1;"
+            >
+            <select id="area_unit" style="width:70px;">
+              <option value="m2" selected>㎡</option>
+              <option value="py">평</option>
+            </select>
+          </div>
+          <span class="hint">±10%(최소 ±5㎡) 범위로 매칭됩니다.</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          단지명/건물명 <span class="optional">(선택)</span>
+        </label>
+        <input
+          type="text"
+          id="building_name"
+          placeholder="예: 역삼래미안"
+          autocomplete="off"
+        >
+        <span class="hint">입력 시 동일 단지 실거래 기준으로 정확도 대폭 향상</span>
+      </div>
+
+      <div class="form-group" id="jimok-group" style="display:none;">
+        <label>
+          지목 <span class="optional">(토지, 선택)</span>
+        </label>
+        <select id="jimok">
+          <option value="">전체</option>
+          <option value="전">전</option>
+          <option value="답">답</option>
+          <option value="대">대</option>
+          <option value="임야">임야</option>
+          <option value="과수원">과수원</option>
+          <option value="목장용지">목장용지</option>
+          <option value="공장용지">공장용지</option>
+          <option value="창고용지">창고용지</option>
+          <option value="학교용지">학교용지</option>
+          <option value="주차장">주차장</option>
+          <option value="주유소용지">주유소용지</option>
+          <option value="도로">도로</option>
+          <option value="하천">하천</option>
+          <option value="제방">제방</option>
+          <option value="구거">구거</option>
+          <option value="유지">유지</option>
+          <option value="양어장">양어장</option>
+          <option value="수도용지">수도용지</option>
+          <option value="공원">공원</option>
+          <option value="체육용지">체육용지</option>
+          <option value="유원지">유원지</option>
+          <option value="종교용지">종교용지</option>
+          <option value="사적지">사적지</option>
+          <option value="묘지">묘지</option>
+          <option value="잡종지">잡종지</option>
+          <option value="철도용지">철도용지</option>
+          <option value="염전">염전</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="months_back">조회 기간 <span class="optional">(선택)</span></label>
+        <select id="months_back">
+          <option value="3">최근 3개월</option>
+          <option value="6" selected>최근 6개월</option>
+          <option value="12">최근 1년</option>
+          <option value="24">최근 2년</option>
+          <option value="36">최근 3년</option>
+          <option value="0">전체 (2006년~)</option>
+        </select>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submit-btn">가격 조회</button>
+    </form>
+  </div>
+
+  <div class="loader" id="loader">실거래 데이터를 불러오고 있습니다...</div>
+  <div class="error" id="error"></div>
+  <div class="info-banner" id="info-banner"></div>
+
+
+  <div class="result card" id="result">
+    <div class="result-header">
+      <div class="title">
+        <strong id="result-address"></strong><br>
+        <span id="result-type"></span>
+      </div>
+      <div class="avg" id="result-avg"></div>
+    </div>
+
+    <!-- 거래 목록 헤더 + 페이지 크기 선택 -->
+    <div class="trans-header">
+      <div class="trans-title" id="trans-title-text">근거 거래 (최신순)</div>
+      <div class="trans-controls">
+        <label for="display-unit">단위:</label>
+        <select id="display-unit">
+          <option value="m2" selected>㎡</option>
+          <option value="py">평</option>
+        </select>
+        <label for="page-size">표시 개수:</label>
+        <select id="page-size">
+          <option value="10" selected>10개</option>
+          <option value="20">20개</option>
+          <option value="50">50개</option>
+          <option value="100">100개</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 거래 테이블 -->
+    <div class="trans-table-wrap">
+      <table class="trans-table" id="trans-table">
+        <thead id="trans-thead"></thead>
+        <tbody id="trans-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    <div class="pagination" id="pagination"></div>
+
+    <!-- 인근 거래 토글 -->
+    <div id="nearby-wrap" style="display:none; margin-top:16px; text-align:center;">
+      <button id="nearby-btn" style="
+        padding: 10px 24px; font-size: 14px; font-weight: 600;
+        border: 1px solid #4a7cf7; border-radius: 8px;
+        background: #fff; color: #4a7cf7; cursor: pointer;
+        font-family: inherit; transition: background 0.15s;
+      ">인근 거래 보기 (같은 동)</button>
+    </div>
+    <div id="nearby-section" style="display:none; margin-top:12px;">
+      <div class="trans-header">
+        <div class="trans-title" id="nearby-title-text"></div>
+        <div class="trans-controls">
+          <label for="nearby-page-size">표시 개수:</label>
+          <select id="nearby-page-size">
+            <option value="10" selected>10개</option>
+            <option value="20">20개</option>
+            <option value="50">50개</option>
+            <option value="100">100개</option>
+          </select>
+        </div>
+      </div>
+      <div class="trans-table-wrap">
+        <table class="trans-table" id="nearby-table">
+          <thead id="nearby-thead"></thead>
+          <tbody id="nearby-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="nearby-pagination"></div>
+    </div>
+  </div>
+
+  <footer>
+    데이터 출처: 국토교통부 실거래가 공개시스템 ·
+    본 추정가는 참고용이며 실제 거래가와 다를 수 있습니다.
+  </footer>
+</div>
+
+<script>
+const API_URL = "/api/v1/estimate";
+
+// === 전역 상태 ===
+let allTransactions = [];
+let currentPage = 1;
+let pageSize = 10;
+let currentPropertyType = "";
+let allNearbyTransactions = [];
+let nearbyPage = 1;
+let nearbyPageSize = 10;
+let nearbyVisible = false;
+
+// === 유틸 ===
+function formatPrice(manWon) {
+  if (!manWon && manWon !== 0) return "0원";
+  const eok = Math.floor(manWon / 10000);
+  const man = manWon % 10000;
+  if (eok >= 1 && man === 0) return `${eok}억원`;
+  if (eok >= 1) return `${eok}억 ${man.toLocaleString()}만원`;
+  return `${man.toLocaleString()}만원`;
+}
+
+function confClass(c) {
+  if (c === "높음") return "high";
+  if (c === "보통") return "mid";
+  return "low";
+}
+
+// 면적 단위 변환 (1평 = 3.3058㎡)
+const PY_PER_M2 = 3.3058;
+function displayUnit() {
+  const el = document.getElementById("display-unit");
+  return el ? el.value : "m2";
+}
+function fmtArea(m2) {
+  if (!m2 || m2 <= 0) return "";
+  if (displayUnit() === "py") {
+    return `${(m2 / PY_PER_M2).toFixed(1)}평`;
+  }
+  return `${m2}㎡`;
+}
+function fmtUnitPrice(manWon, m2) {
+  if (!m2 || m2 <= 0) return "";
+  if (displayUnit() === "py") {
+    const perPy = Math.round(manWon / (m2 / PY_PER_M2));
+    return `${perPy.toLocaleString()}만원/평`;
+  }
+  return `${Math.round(manWon / m2).toLocaleString()}만원/㎡`;
+}
+
+// 주요 거래 평균 단가 + 날짜 범위 렌더링
+function renderAverage(transactions) {
+  const box = document.getElementById("result-avg");
+  const valid = (transactions || []).filter(t => t.area_m2 > 0 && t.price_man_won > 0);
+  if (!valid.length) {
+    box.innerHTML = "";
+    return;
+  }
+  const unit = displayUnit();
+  let sumPer = 0;
+  for (const t of valid) {
+    const denom = unit === "py" ? t.area_m2 / PY_PER_M2 : t.area_m2;
+    sumPer += t.price_man_won / denom;
+  }
+  const avg = Math.round(sumPer / valid.length);
+  const label = unit === "py" ? "평균 만원/평" : "평균 만원/㎡";
+
+  const dates = valid.map(t => t.deal_year * 10000 + t.deal_month * 100 + t.deal_day);
+  const minD = Math.min(...dates), maxD = Math.max(...dates);
+  const fmtD = d => `${Math.floor(d/10000)}.${String(Math.floor(d/100)%100).padStart(2,"0")}.${String(d%100).padStart(2,"0")}`;
+  const range = minD === maxD ? fmtD(minD) : `${fmtD(minD)} ~ ${fmtD(maxD)}`;
+
+  box.innerHTML = `
+    <div class="avg-price">${avg.toLocaleString()}<span style="font-size:12px;font-weight:500;"> ${label.replace("평균 ","")}</span></div>
+    <div>${label} (${valid.length}건)</div>
+    <div class="avg-meta">${range}</div>
+  `;
+}
+
+function escHtml(s) {
+  if (!s) return "";
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// === 주소 조합 ===
+function buildAddress(t) {
+  const parts = [];
+  if (t.sgg_nm) parts.push(t.sgg_nm);
+  if (t.dong) parts.push(t.dong);
+  if (t.jibun) parts.push(t.jibun);
+  return parts.join(" ") || "-";
+}
+
+// === 면적 표시 ===
+function buildAreaHtml(t) {
+  const lines = [];
+
+  // 주 면적 (area_type 이름 포함)
+  if (t.area_m2 > 0 && t.area_type) {
+    lines.push(`<span class="area-main">${t.area_type}: ${fmtArea(t.area_m2)}</span>`);
+  } else if (t.area_m2 > 0) {
+    lines.push(`<span class="area-main">${fmtArea(t.area_m2)}</span>`);
+  }
+
+  // 추가 면적 (주 면적과 중복되지 않는 것만)
+  if (t.exclu_use_ar && t.area_type !== "전용면적") {
+    lines.push(`<span class="area-sub">전용: ${fmtArea(t.exclu_use_ar)}</span>`);
+  }
+  if (t.land_ar) {
+    lines.push(`<span class="area-sub">대지권: ${fmtArea(t.land_ar)}</span>`);
+  }
+  if (t.building_ar && t.area_type !== "건물면적") {
+    lines.push(`<span class="area-sub">건물: ${fmtArea(t.building_ar)}</span>`);
+  }
+  if (t.plottage_ar) {
+    lines.push(`<span class="area-sub">대지: ${fmtArea(t.plottage_ar)}</span>`);
+  }
+  if (t.deal_area && t.area_type !== "거래면적") {
+    lines.push(`<span class="area-sub">거래: ${fmtArea(t.deal_area)}</span>`);
+  }
+  if (t.total_floor_ar && t.area_type !== "연면적") {
+    lines.push(`<span class="area-sub">연면적: ${fmtArea(t.total_floor_ar)}</span>`);
+  }
+
+  return lines.join("<br>") || "-";
+}
+
+// === 태그(뱃지) 표시 ===
+function buildTagsHtml(t) {
+  const tags = [];
+
+  // 거래유형
+  if (t.dealing_gbn) {
+    tags.push(`<span class="tag tag-trade">${escHtml(t.dealing_gbn)}</span>`);
+  }
+
+  // 해제여부
+  if (t.cdeal_type) {
+    tags.push(`<span class="tag tag-cancel">해제: ${escHtml(t.cdeal_type)}</span>`);
+  }
+  if (t.cdeal_day) {
+    tags.push(`<span class="tag tag-cancel">해제일: ${escHtml(t.cdeal_day)}</span>`);
+  }
+
+  // 지목 (토지)
+  if (t.jimok) {
+    tags.push(`<span class="tag tag-jimok">지목: ${escHtml(t.jimok)}</span>`);
+  }
+
+  // 용도지역
+  if (t.land_use) {
+    tags.push(`<span class="tag tag-landuse">${escHtml(t.land_use)}</span>`);
+  }
+
+  // 주택유형 (연립다세대)
+  if (t.house_type) {
+    tags.push(`<span class="tag tag-housetype">${escHtml(t.house_type)}</span>`);
+  }
+
+  // 건물유형/용도 (단독/상업/공장)
+  if (t.building_type) {
+    tags.push(`<span class="tag tag-housetype">건물: ${escHtml(t.building_type)}</span>`);
+  }
+  if (t.building_use) {
+    tags.push(`<span class="tag tag-landuse">용도: ${escHtml(t.building_use)}</span>`);
+  }
+
+  // 지분거래
+  if (t.share_dealing_type) {
+    tags.push(`<span class="tag tag-share">지분: ${escHtml(t.share_dealing_type)}</span>`);
+  }
+
+  return tags.join(" ") || "";
+}
+
+// === 테이블 렌더링 ===
+function renderTable() {
+  const thead = document.getElementById("trans-thead");
+  const tbody = document.getElementById("trans-tbody");
+  const titleText = document.getElementById("trans-title-text");
+
+  const totalCount = allTransactions.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, totalCount);
+  const pageItems = allTransactions.slice(startIdx, endIdx);
+
+  titleText.textContent = `근거 거래 (전체 ${totalCount}건 중 ${startIdx + 1}~${endIdx}건)`;
+  renderAverage(allTransactions);
+
+  // 테이블 헤더
+  thead.innerHTML = `<tr>
+    <th>거래일</th>
+    <th>주소</th>
+    <th>단지/건물명</th>
+    <th>면적</th>
+    <th>층</th>
+    <th>거래금액</th>
+    <th>상세정보</th>
+  </tr>`;
+
+  // 테이블 바디
+  tbody.innerHTML = "";
+  for (const t of pageItems) {
+    const dateStr = `${t.deal_year}.${String(t.deal_month).padStart(2,"0")}.${String(t.deal_day).padStart(2,"0")}`;
+    const floorText = t.floor != null ? `${t.floor}층` : "-";
+    const displayName = t.name || "-";
+    const buildYearText = t.build_year ? `(${t.build_year}년식)` : "";
+    const addr = buildAddress(t);
+    const areaHtml = buildAreaHtml(t);
+    const tagsHtml = buildTagsHtml(t);
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td data-label="거래일" style="white-space:nowrap">${dateStr}</td>
+      <td data-label="주소" class="addr-cell">
+        <div class="addr-main">${escHtml(addr)}${t.address_estimated ? ` <span class="est-tag" title="건축물대장 기반 추정">${t.address_estimated_certain ? "추정" : "추정(불확실)"}</span>` : ""}</div>
+        ${t.road_address ? `<div class="addr-sub">${escHtml(t.road_address)}</div>` : ""}
+      </td>
+      <td data-label="단지/건물명">
+        <div style="font-weight:600">${escHtml(displayName)}</div>
+        <div style="font-size:11px;color:#888">${buildYearText}</div>
+      </td>
+      <td data-label="면적" class="area-cell">${areaHtml}</td>
+      <td data-label="층" style="text-align:center">${floorText}</td>
+      <td data-label="거래금액" class="price-cell">${formatPrice(t.price_man_won)}${t.area_m2 > 0 ? `<div style="font-size:11px;color:#888;font-weight:400">${fmtUnitPrice(t.price_man_won, t.area_m2)}</div>` : ""}</td>
+      <td data-label="상세정보">${tagsHtml || "-"}</td>
+    `;
+    tbody.appendChild(row);
+  }
+
+  // 페이지네이션 렌더링
+  renderPagination(totalPages);
+}
+
+// === 페이지네이션 ===
+function renderPagination(totalPages) {
+  const pag = document.getElementById("pagination");
+  pag.innerHTML = "";
+
+  if (totalPages <= 1) return;
+
+  // 이전 버튼
+  const prevBtn = document.createElement("button");
+  prevBtn.textContent = "< 이전";
+  prevBtn.disabled = currentPage <= 1;
+  prevBtn.addEventListener("click", () => { currentPage--; renderTable(); scrollToTable(); });
+  pag.appendChild(prevBtn);
+
+  // 페이지 번호 (최대 7개 표시)
+  const maxVisible = 7;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  if (endPage - startPage < maxVisible - 1) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+
+  if (startPage > 1) {
+    addPageBtn(pag, 1);
+    if (startPage > 2) {
+      const dots = document.createElement("span");
+      dots.className = "page-info";
+      dots.textContent = "...";
+      pag.appendChild(dots);
+    }
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    addPageBtn(pag, i);
+  }
+
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      const dots = document.createElement("span");
+      dots.className = "page-info";
+      dots.textContent = "...";
+      pag.appendChild(dots);
+    }
+    addPageBtn(pag, totalPages);
+  }
+
+  // 다음 버튼
+  const nextBtn = document.createElement("button");
+  nextBtn.textContent = "다음 >";
+  nextBtn.disabled = currentPage >= totalPages;
+  nextBtn.addEventListener("click", () => { currentPage++; renderTable(); scrollToTable(); });
+  pag.appendChild(nextBtn);
+}
+
+function addPageBtn(container, pageNum) {
+  const btn = document.createElement("button");
+  btn.textContent = pageNum;
+  if (pageNum === currentPage) btn.className = "active";
+  btn.addEventListener("click", () => { currentPage = pageNum; renderTable(); scrollToTable(); });
+  container.appendChild(btn);
+}
+
+function scrollToTable() {
+  document.getElementById("trans-table").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderNearbyTable() {
+  const thead = document.getElementById("nearby-thead");
+  const tbody = document.getElementById("nearby-tbody");
+  const titleEl = document.getElementById("nearby-title-text");
+  const pag = document.getElementById("nearby-pagination");
+
+  const total = allNearbyTransactions.length;
+  const totalPages = Math.max(1, Math.ceil(total / nearbyPageSize));
+  if (nearbyPage > totalPages) nearbyPage = totalPages;
+  if (nearbyPage < 1) nearbyPage = 1;
+
+  const start = (nearbyPage - 1) * nearbyPageSize;
+  const end = Math.min(start + nearbyPageSize, total);
+  const items = allNearbyTransactions.slice(start, end);
+
+  titleEl.textContent = `인근 거래 (전체 ${total}건 중 ${start + 1}~${end}건)`;
+
+  thead.innerHTML = `<tr>
+    <th>거래일</th><th>주소</th><th>단지/건물명</th>
+    <th>면적</th><th>층</th><th>거래금액</th><th>상세정보</th>
+  </tr>`;
+
+  tbody.innerHTML = "";
+  for (const t of items) {
+    const dateStr = `${t.deal_year}.${String(t.deal_month).padStart(2,"0")}.${String(t.deal_day).padStart(2,"0")}`;
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td data-label="거래일" style="white-space:nowrap">${dateStr}</td>
+      <td data-label="주소" class="addr-cell"><div class="addr-main">${escHtml(buildAddress(t))}${t.address_estimated ? ` <span class="est-tag" title="건축물대장 기반 추정">${t.address_estimated_certain ? "추정" : "추정(불확실)"}</span>` : ""}</div>${t.road_address ? `<div class="addr-sub">${escHtml(t.road_address)}</div>` : ""}</td>
+      <td data-label="단지/건물명">
+        <div style="font-weight:600">${escHtml(t.name || "-")}</div>
+        <div style="font-size:11px;color:#888">${t.build_year ? `(${t.build_year}년식)` : ""}</div>
+      </td>
+      <td data-label="면적" class="area-cell">${buildAreaHtml(t)}</td>
+      <td data-label="층" style="text-align:center">${t.floor != null ? t.floor + "층" : "-"}</td>
+      <td data-label="거래금액" class="price-cell">${formatPrice(t.price_man_won)}${t.area_m2 > 0 ? `<div style="font-size:11px;color:#888;font-weight:400">${fmtUnitPrice(t.price_man_won, t.area_m2)}</div>` : ""}</td>
+      <td data-label="상세정보">${buildTagsHtml(t) || "-"}</td>
+    `;
+    tbody.appendChild(row);
+  }
+
+  // 페이지네이션
+  pag.innerHTML = "";
+  if (totalPages > 1) {
+    const prev = document.createElement("button");
+    prev.textContent = "< 이전";
+    prev.disabled = nearbyPage <= 1;
+    prev.addEventListener("click", () => { nearbyPage--; renderNearbyTable(); });
+    pag.appendChild(prev);
+
+    for (let i = Math.max(1, nearbyPage - 2); i <= Math.min(totalPages, nearbyPage + 2); i++) {
+      const btn = document.createElement("button");
+      btn.textContent = i;
+      if (i === nearbyPage) btn.className = "active";
+      btn.addEventListener("click", () => { nearbyPage = i; renderNearbyTable(); });
+      pag.appendChild(btn);
+    }
+
+    const next = document.createElement("button");
+    next.textContent = "다음 >";
+    next.disabled = nearbyPage >= totalPages;
+    next.addEventListener("click", () => { nearbyPage++; renderNearbyTable(); });
+    pag.appendChild(next);
+  }
+}
+
+// === 이벤트 ===
+const form = document.getElementById("price-form");
+const submitBtn = document.getElementById("submit-btn");
+const loader = document.getElementById("loader");
+const errorEl = document.getElementById("error");
+const resultEl = document.getElementById("result");
+const infoBanner = document.getElementById("info-banner");
+
+// 입력 단위(㎡/평) 변경 시 placeholder 업데이트
+document.getElementById("area_unit").addEventListener("change", (e) => {
+  const input = document.getElementById("area_m2");
+  input.placeholder = e.target.value === "py" ? "예: 25" : "예: 84";
+});
+
+// 단위(㎡/평) 전환
+document.getElementById("display-unit").addEventListener("change", () => {
+  renderTable();
+  if (nearbyVisible) renderNearbyTable();
+  const t = document.getElementById("result-type");
+  if (t) {
+    // 헤더의 면적 표기만 재변환 (입력값 기준으로 다시 그림)
+    const areaVal = document.getElementById("area_m2").value;
+    const areaUnit = document.getElementById("area_unit").value;
+    if (areaVal) {
+      const v = parseFloat(areaVal);
+      const m2 = areaUnit === "py" ? v * PY_PER_M2 : v;
+      const parts = t.textContent.split(" · ");
+      parts[1] = fmtArea(m2);
+      t.textContent = parts.join(" · ");
+    }
+  }
+});
+
+// 페이지 크기 변경
+document.getElementById("page-size").addEventListener("change", (e) => {
+  pageSize = parseInt(e.target.value, 10);
+  currentPage = 1;
+  renderTable();
+});
+
+// 인근 거래 보기 토글
+document.getElementById("nearby-btn").addEventListener("click", () => {
+  nearbyVisible = !nearbyVisible;
+  const section = document.getElementById("nearby-section");
+  const btn = document.getElementById("nearby-btn");
+  if (nearbyVisible) {
+    nearbyPageSize = parseInt(document.getElementById("nearby-page-size").value, 10);
+    renderNearbyTable();
+    section.style.display = "block";
+    btn.textContent = `인근 거래 숨기기`;
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else {
+    section.style.display = "none";
+    btn.textContent = `인근 거래 보기 (같은 동 ${allNearbyTransactions.length}건)`;
+  }
+});
+
+document.getElementById("nearby-page-size").addEventListener("change", (e) => {
+  nearbyPageSize = parseInt(e.target.value, 10);
+  nearbyPage = 1;
+  renderNearbyTable();
+});
+
+async function submitSearch(body) {
+  errorEl.classList.remove("show");
+  resultEl.classList.remove("show");
+  infoBanner.classList.remove("show");
+  loader.classList.add("show");
+  submitBtn.disabled = true;
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      const detail = data.detail || {};
+      const msg = typeof detail === "object"
+        ? (detail.message || detail.suggestion || JSON.stringify(detail))
+        : String(detail);
+      throw new Error(msg || `HTTP ${resp.status}`);
+    }
+
+    // 폴백 안내
+    const notices = [];
+    if (data.is_fallback) {
+      notices.push(`정확히 일치하는 거래가 없어 ${data.fallback_dong || "읍면동"} 단위 거래를 표시합니다.`);
+    }
+    if (data.jimok_fallback) {
+      notices.push(`'${body.jimok}' 지목에 맞는 거래가 없어 다른 지목의 거래를 표시합니다.`);
+    }
+    if (data.building_fallback) {
+      const bname = body.building_name || "입력하신 단지명";
+      notices.push(`'${bname}'에 해당하는 거래가 없어 주소 기준 거래를 표시합니다.`);
+    }
+    if (data.area_fallback) {
+      const areaLabel = body.area_m2 ? fmtArea(body.area_m2) : "입력하신 면적";
+      notices.push(`${areaLabel} 조건에 맞는 거래가 없어 다른 면적의 거래를 표시합니다.`);
+    }
+    if (notices.length) {
+      infoBanner.textContent = notices.join(" ");
+      infoBanner.classList.add("show");
+    }
+
+    // 결과 상단 렌더링
+    document.getElementById("result-address").textContent = data.address;
+    document.getElementById("result-type").textContent = data.property_type
+      + (body.area_m2 ? ` · ${fmtArea(body.area_m2)}` : "")
+      + (body.building_name ? ` · ${body.building_name}` : "");
+
+
+    // 주요 거래 렌더링
+    allTransactions = data.recent_transactions || [];
+    currentPage = 1;
+    pageSize = parseInt(document.getElementById("page-size").value, 10);
+    renderTable();
+
+    // 인근 거래 처리
+    allNearbyTransactions = data.nearby_transactions || [];
+    nearbyPage = 1;
+    nearbyVisible = false;
+    const nearbyWrap = document.getElementById("nearby-wrap");
+    const nearbySection = document.getElementById("nearby-section");
+    nearbySection.style.display = "none";
+    if (allNearbyTransactions.length > 0) {
+      document.getElementById("nearby-btn").textContent =
+        `인근 거래 보기 (같은 동 ${allNearbyTransactions.length}건)`;
+      nearbyWrap.style.display = "block";
+    } else {
+      nearbyWrap.style.display = "none";
+    }
+
+    resultEl.classList.add("show");
+    resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.add("show");
+  } finally {
+    loader.classList.remove("show");
+    submitBtn.disabled = false;
+  }
+}
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const body = {
+    address: document.getElementById("address").value.trim(),
+    property_type: document.getElementById("property_type").value,
+    months_back: parseInt(document.getElementById("months_back").value, 10),
+  };
+  const area = document.getElementById("area_m2").value;
+  const areaUnit = document.getElementById("area_unit").value;
+  const building = document.getElementById("building_name").value.trim();
+  if (area) {
+    const v = parseFloat(area);
+    body.area_m2 = areaUnit === "py" ? +(v * PY_PER_M2).toFixed(2) : v;
+  }
+  if (building) body.building_name = building;
+  const jimok = document.getElementById("jimok").value;
+  if (body.property_type === "토지" && jimok) body.jimok = jimok;
+  submitSearch(body);
+});
+
+// 부동산 유형이 토지일 때만 지목 노출
+function toggleJimok() {
+  const pt = document.getElementById("property_type").value;
+  document.getElementById("jimok-group").style.display = pt === "토지" ? "" : "none";
+}
+document.getElementById("property_type").addEventListener("change", toggleJimok);
+toggleJimok();
+</script>
+</body>
+</html>

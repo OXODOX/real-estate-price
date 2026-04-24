@@ -1,0 +1,503 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────
+   기존 static/index.html 디자인을 그대로 옮겨온 클래스.
+   React 컴포넌트에서 이 className 들을 사용한다.
+   ────────────────────────────────────────────────────────── */
+
+:root {
+  --bg: #f5f7fa;
+  --fg: #222;
+  --primary: #4a7cf7;
+  --primary-dark: #3960d8;
+  --price-blue: #1c5a9e;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  line-height: 1.5;
+}
+
+.container-narrow {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* ─────── 헤더 ─────── */
+.page-header {
+  text-align: center;
+  padding: 32px 0 24px;
+}
+.page-header h1 {
+  font-size: 28px;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.page-header p {
+  color: #666;
+  font-size: 14px;
+}
+
+/* ─────── 카드 ─────── */
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  margin-bottom: 20px;
+}
+
+/* ─────── 폼 ─────── */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 6px;
+}
+.form-group label .required {
+  color: #e33;
+}
+.form-group label .optional {
+  color: #999;
+  font-weight: 400;
+}
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  color: #222;
+}
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.form-group .hint {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+.form-row .form-group {
+  flex: 1;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.submit-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+.submit-btn:disabled {
+  background: #aab;
+  cursor: not-allowed;
+}
+
+/* ─────── 로더 ─────── */
+.loader {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+.loader::before {
+  content: "";
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─────── 에러/안내 ─────── */
+.error-banner {
+  padding: 14px;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  color: #c33;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.info-banner {
+  padding: 12px 14px;
+  background: #fdecea;
+  border: 1px solid #f5c2c0;
+  border-radius: 8px;
+  color: #b3261e;
+  font-size: 13px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+/* ─────── 결과 헤더 ─────── */
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+  gap: 12px;
+}
+.result-header .title {
+  font-size: 14px;
+  color: #666;
+}
+.result-header .title strong {
+  color: #222;
+  display: block;
+  margin-bottom: 4px;
+}
+.result-header .avg {
+  text-align: right;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+.result-header .avg .avg-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--price-blue);
+}
+.result-header .avg .avg-meta {
+  font-size: 11px;
+  color: #888;
+}
+
+/* ─────── 거래 테이블 ─────── */
+.trans-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trans-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+}
+.trans-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.trans-controls label {
+  color: #666;
+}
+.trans-controls select {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #222;
+}
+
+.trans-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+.trans-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.trans-table thead th {
+  background: #f1f3f8;
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #444;
+  border-bottom: 2px solid #dde;
+  white-space: nowrap;
+}
+.trans-table tbody tr {
+  border-bottom: 1px solid #eef;
+  cursor: pointer;
+}
+.trans-table tbody tr:hover {
+  background: #f8faff;
+}
+.trans-table tbody tr.selected {
+  background: #eef3ff;
+}
+.trans-table td {
+  padding: 10px 8px;
+  vertical-align: top;
+  color: #222;
+}
+.trans-table .price-cell {
+  font-weight: 600;
+  color: var(--primary);
+  white-space: nowrap;
+}
+.trans-table .addr-cell {
+  max-width: 220px;
+}
+.trans-table .addr-cell .addr-main {
+  font-weight: 600;
+  color: #222;
+}
+.trans-table .addr-cell .addr-sub {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+.est-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #8a5a00;
+  background: #fff4d6;
+  border: 1px solid #f0d58a;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.trans-table .area-cell {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.trans-table .area-cell .area-main {
+  font-weight: 600;
+  color: #333;
+  display: block;
+}
+.trans-table .area-cell .area-sub {
+  color: #888;
+  display: block;
+}
+.trans-table .tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-right: 4px;
+  margin-bottom: 2px;
+}
+.tag-trade {
+  background: #e8f0fe;
+  color: #1a56db;
+}
+.tag-cancel {
+  background: #fce8e8;
+  color: #c33;
+}
+.tag-jimok {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.tag-landuse {
+  background: #fff3e0;
+  color: #e65100;
+}
+.tag-housetype {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+.tag-share {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+/* ─────── 인근 거래 버튼 ─────── */
+.nearby-btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.nearby-btn:hover {
+  background: #f0f4ff;
+}
+
+/* ─────── 지도 ─────── */
+.map-wrap {
+  width: 100%;
+  height: 360px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eef1f5;
+  border: 1px solid #e5e7eb;
+  position: relative;
+}
+.map-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 13px;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* ─────── 푸터 ─────── */
+.page-footer {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  padding: 20px 0;
+}
+
+/* ─────── 모바일: 테이블 → 카드 ─────── */
+@media (max-width: 600px) {
+  .container-narrow {
+    padding: 10px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .page-header h1 {
+    font-size: 22px;
+  }
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .result-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .result-header .avg {
+    text-align: left;
+  }
+  .trans-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .trans-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .trans-table-wrap {
+    overflow-x: visible;
+  }
+  .trans-table thead {
+    display: none;
+  }
+  .trans-table,
+  .trans-table tbody,
+  .trans-table tr,
+  .trans-table td {
+    display: block;
+    width: 100%;
+  }
+  .trans-table tbody tr {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: #fff;
+  }
+  .trans-table tbody tr.selected {
+    border-color: var(--primary);
+    background: #eef3ff;
+  }
+  .trans-table tbody tr:hover {
+    background: #fff;
+  }
+  .trans-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 6px 0;
+    border: none;
+    text-align: right;
+    font-size: 13px;
+  }
+  .trans-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #666;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .trans-table td > * {
+    text-align: right;
+  }
+  .trans-table .addr-cell {
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+  .trans-table .addr-cell::before {
+    margin-bottom: 4px;
+  }
+  .trans-table .addr-cell .addr-main,
+  .trans-table .addr-cell .addr-sub {
+    text-align: left;
+    white-space: normal;
+  }
+  .trans-table .area-cell span {
+    display: block;
+  }
+  .trans-table .price-cell {
+    font-weight: 700;
+  }
+  select,
+  input {
+    font-size: 16px; /* iOS zoom 방지 */
+  }
+  .map-wrap {
+    height: 280px;
+  }
+}

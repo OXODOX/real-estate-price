@@ -1,0 +1,53 @@
+# ─── 환경변수 / 시크릿 ───
+.env
+.env.*
+!.env.example
+*.env.local
+
+# ─── Python ───
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# ─── 로그 / 런타임 ───
+server.log
+*.log
+
+# ─── 캐시 (SQLite) ───
+backend/.cache/
+.cache/
+
+# ─── 탐색용 스크립트 (커밋 대상 아님) ───
+test_api*.py
+explore_apis.py
+test_all_types.py
+test_accuracy.py
+test_flexible.py
+
+# ─── IDE ───
+.vscode/
+.idea/
+*.swp
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+
+# ─── Node / Next.js ───
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# ─── 기타 ───
+coverage/
+.turbo/
