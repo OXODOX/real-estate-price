@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   ApiError,
   fetchEstimate,
+  warmupBackend,
   type PriceRequest,
   type Transaction,
   type TransactionResult,
@@ -20,8 +21,19 @@ export default function Page() {
     key: string;
   } | null>(null);
 
+  // 페이지 로드 시 Render 서버 미리 깨우기 (cold start 완화)
+  useEffect(() => {
+    warmupBackend();
+  }, []);
+
   const mutation = useMutation<TransactionResult, Error, PriceRequest>({
     mutationFn: (req) => fetchEstimate(req),
+    retry: (failureCount, error) => {
+      // 400/404 같은 정상 응답은 재시도 안 함, 네트워크 오류만 최대 2회 재시도
+      if (error instanceof ApiError && error.status >= 400) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
     onSuccess: (data) => {
       setResult(data);
       const first =

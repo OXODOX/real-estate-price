@@ -117,12 +117,29 @@ export async function fetchEstimate(
   req: PriceRequest,
   signal?: AbortSignal,
 ): Promise<TransactionResult> {
-  const res = await fetch(`${API_BASE}/api/v1/estimate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-    signal,
-  });
+  // Render free 플랜 cold start 대응: 120초 타임아웃
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  if (signal) {
+    signal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/v1/estimate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ApiError(0, "서버 응답 시간이 너무 길어요. 잠시 후 다시 시도해주세요.");
+    }
+    throw e;
+  }
+  clearTimeout(timeoutId);
 
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
@@ -136,4 +153,16 @@ export async function fetchEstimate(
   }
 
   return res.json();
+}
+
+/**
+ * Render free 플랜은 15분 idle 시 서버가 잠들어 첫 요청이 30~60초 걸림.
+ * 페이지 로드 시 health 엔드포인트를 찔러 미리 깨워둔다.
+ */
+export async function warmupBackend(): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/api/v1/health`, { method: "GET" });
+  } catch {
+    // 실패해도 무시 (어차피 조회 시 다시 시도됨)
+  }
 }
