@@ -75,10 +75,10 @@ class PriceRequest(BaseModel):
     months_back: int = Field(
         default=6,
         ge=0,
-        le=36,
+        le=60,
         description=(
             "지금으로부터 몇 개월치 거래를 조회할지. 0 이면 MOLIT 데이터 "
-            "시작(2006) 부터 전체 기간 조회. 1~36 은 해당 개월 수."
+            "시작(2006) 부터 전체 기간 조회. 1~60 은 해당 개월 수."
         ),
         examples=[12],
     )

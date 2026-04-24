@@ -95,7 +95,7 @@ async def get_transactions(req: PriceRequest):
     # 4. 실거래 데이터 조회 (fan-out 시 여러 코드 병렬 조회 후 병합)
     import asyncio as _asyncio
 
-    months_back_eff = 0 if req.months_back == 0 else max(1, min(req.months_back, 36))
+    months_back_eff = 0 if req.months_back == 0 else max(1, min(req.months_back, 60))
     fetch_results = await _asyncio.gather(
         *[
             fetch_transactions(
