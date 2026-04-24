@@ -21,7 +21,7 @@ from app.services.juso_api import (
 )
 from app.services.molit_api import fetch_transactions
 from app.services.price_estimator import group_transactions
-from app.services.bldg_registry import enrich_masked_jibun
+from app.services.mask_client import enrich_masked_jibun_any as enrich_masked_jibun
 
 router = APIRouter(prefix="/api/v1", tags=["transactions"])
 

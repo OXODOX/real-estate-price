@@ -33,3 +33,11 @@ services:
         sync: false
       - key: PYTHON_VERSION
         value: "3.12.7"
+      # Mask Service (선택) - 사용자 PC 의 bldg.db 를 호출해 마스킹 복원.
+      # 설정 안 하면 마스킹은 원본 그대로 반환 (서비스 자체는 정상 동작).
+      - key: MASK_SERVICE_URL
+        sync: false
+      - key: MASK_SERVICE_TOKEN
+        sync: false
+      - key: MASK_SERVICE_TIMEOUT
+        value: "10"
