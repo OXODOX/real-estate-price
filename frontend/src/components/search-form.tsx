@@ -18,7 +18,7 @@ const MONTHS_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 12, label: "최근 1년" },
   { value: 24, label: "최근 2년" },
   { value: 36, label: "최근 3년" },
-  { value: 0, label: "전체 (2006년~)" },
+  { value: 60, label: "최근 5년" },
 ];
 
 const schema = z.object({
@@ -37,7 +37,7 @@ const schema = z.object({
   area_unit: z.enum(["m2", "py"]),
   building_name: z.string().optional(),
   jimok: z.string().optional(),
-  months_back: z.number().int().min(0).max(36),
+  months_back: z.number().int().min(0).max(60),
 });
 
 type FormValues = z.infer<typeof schema>;
