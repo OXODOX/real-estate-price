@@ -124,8 +124,24 @@ def _query_sqlite(sigungu_cd: str, bjdong_cd: str) -> list[dict] | None:
     ]
 
 
+def _sigungu_name(sigungu_cd: str) -> str:
+    """LAWD_CODE_MAP 의 reverse 조회로 시군구 이름 획득. 실패 시 빈 문자열.
+
+    예: '41220' → '경기 평택시'. VWorld 검색 시 동명이 다른 시군구와 안 섞이게
+    검색어 앞에 붙여 사용한다.
+    """
+    try:
+        from app.services.address_lookup import LAWD_CODE_MAP
+    except Exception:
+        return ""
+    for name, code in LAWD_CODE_MAP.items():
+        if code == sigungu_cd:
+            return name
+    return ""
+
+
 async def _get_bjdong_cd(sigungu_cd: str, dong_name: str) -> str | None:
-    """VWorld DISTRICT 검색으로 법정동코드(10자리 중 bjdongCd 5자리) 획득."""
+    """VWorld DISTRICT/ADDRESS 검색으로 법정동코드(5자리) 획득."""
     key = (sigungu_cd, dong_name)
     if key in _BJDONG_CACHE:
         return _BJDONG_CACHE[key]
@@ -133,6 +149,8 @@ async def _get_bjdong_cd(sigungu_cd: str, dong_name: str) -> str | None:
     settings = get_settings()
     if not settings.VWORLD_API_KEY or not dong_name:
         return None
+
+    sgg_nm = _sigungu_name(sigungu_cd)  # 예: '경기 평택시', '서울 강남구'
 
     # "삼죽면 내장리" 같이 공백이 섞이면 VWorld가 못 찾는 경우가 많음.
     # 공백이 있으면 마지막 토큰(리/동)만 우선, 실패 시 전체 쿼리로 폴백.
@@ -172,32 +190,35 @@ async def _get_bjdong_cd(sigungu_cd: str, dong_name: str) -> str | None:
 
             # 2순위: ADDRESS PARCEL 검색 (리 단위까지 지원)
             # id 는 19자리 PNU: sigunguCd(5) + bjdongCd(5) + ...
-            addr_query = (
-                f"{sigungu_cd} {dong_name}" if not dong_name.startswith(sigungu_cd) else dong_name
-            )
-            # sigunguCd 숫자로는 의미 없으니 dong_name 만 쿼리에 넣되,
-            # 매칭은 id 선두 5자리로 검증해 다른 시군구의 동명이 들어가지 않게 함.
-            params = {
-                "service": "search",
-                "request": "search",
-                "version": "2.0",
-                "key": settings.VWORLD_API_KEY,
-                "query": dong_name,
-                "type": "ADDRESS",
-                "category": "PARCEL",
-                "format": "json",
-                "size": "30",
-            }
-            resp = await client.get(_VWORLD_URL, params=params)
-            data = resp.json()
-            items = data.get("response", {}).get("result", {}).get("items", [])
-            for it in items:
-                rid = it.get("id", "")
-                if len(rid) >= 10 and rid.startswith(sigungu_cd):
-                    bjdong = rid[5:10]
-                    _BJDONG_CACHE[key] = bjdong
-                    _save_bjdong_cache()
-                    return bjdong
+            # 동명만 넣으면 다른 시군구가 더 위로 잡혀 30건 안에 우리 시군구가
+            # 안 들어올 수 있음. 시군구 이름을 앞에 붙여 정확도 보강.
+            addr_queries = []
+            if sgg_nm:
+                addr_queries.append(f"{sgg_nm} {dong_name}")
+            addr_queries.append(dong_name)
+
+            for q in addr_queries:
+                params = {
+                    "service": "search",
+                    "request": "search",
+                    "version": "2.0",
+                    "key": settings.VWORLD_API_KEY,
+                    "query": q,
+                    "type": "ADDRESS",
+                    "category": "PARCEL",
+                    "format": "json",
+                    "size": "30",
+                }
+                resp = await client.get(_VWORLD_URL, params=params)
+                data = resp.json()
+                items = data.get("response", {}).get("result", {}).get("items", [])
+                for it in items:
+                    rid = it.get("id", "")
+                    if len(rid) >= 10 and rid.startswith(sigungu_cd):
+                        bjdong = rid[5:10]
+                        _BJDONG_CACHE[key] = bjdong
+                        _save_bjdong_cache()
+                        return bjdong
     except Exception:
         pass
     return None

@@ -32,6 +32,11 @@ from pydantic import BaseModel, Field
 
 from app.models.schemas import Transaction
 from app.services.bldg_registry import enrich_masked_jibun
+from app.routers.registry import (
+    RegistryRequest,
+    RegistryResponse,
+    _compute_registry_local,
+)
 
 # ─── 설정 ───
 _EXPECTED_TOKEN = os.getenv("MASK_SERVICE_TOKEN", "").strip()
@@ -133,3 +138,18 @@ async def enrich_masked(
         processed=processed,
         recovered=len(results),
     )
+
+
+@app.post("/registry", response_model=RegistryResponse)
+async def registry(
+    req: RegistryRequest,
+    x_mask_token: str = Header(default=""),
+):
+    """건축물대장·토지대장 정보 조회 (로컬 bldg.db 활용).
+
+    Render 의 /api/v1/registry 가 이 엔드포인트로 proxy.
+    """
+    if _EXPECTED_TOKEN:
+        if x_mask_token != _EXPECTED_TOKEN:
+            raise HTTPException(status_code=401, detail="invalid token")
+    return await _compute_registry_local(req)
