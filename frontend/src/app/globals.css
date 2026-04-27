@@ -501,3 +501,156 @@ body {
     height: 280px;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   거래금액 단가 (만원/㎡, 만원/평)
+   ────────────────────────────────────────────────────────── */
+.price-cell .price-main {
+  font-weight: 700;
+  color: var(--price-blue);
+}
+.price-cell .price-sub {
+  font-size: 11px;
+  color: #888;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   대장 정보 버튼/링크
+   ────────────────────────────────────────────────────────── */
+.reg-link {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--primary);
+  background: rgba(74, 124, 247, 0.08);
+  border: 1px solid rgba(74, 124, 247, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.reg-link:hover {
+  background: rgba(74, 124, 247, 0.18);
+}
+
+/* ──────────────────────────────────────────────────────────
+   대장 정보 모달
+   ────────────────────────────────────────────────────────── */
+.reg-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.reg-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: min(900px, 100%);
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.reg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+}
+.reg-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+.reg-subtitle {
+  font-size: 13px;
+  color: #666;
+  margin-top: 2px;
+}
+.reg-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #888;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.reg-close:hover {
+  color: #222;
+}
+.reg-body {
+  padding: 16px 20px 20px;
+  overflow-y: auto;
+}
+.reg-loading,
+.reg-empty {
+  padding: 24px 8px;
+  color: #888;
+  text-align: center;
+  font-size: 13px;
+}
+.reg-error {
+  padding: 16px;
+  color: #b3261e;
+  background: #fdecea;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.reg-note {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 12px;
+}
+.reg-section {
+  margin-top: 16px;
+}
+.reg-section:first-child {
+  margin-top: 0;
+}
+.reg-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #444;
+  margin-bottom: 8px;
+}
+.reg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.reg-table th,
+.reg-table td {
+  border: 1px solid #eee;
+  padding: 6px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+.reg-table th {
+  background: #f7f9fc;
+  font-weight: 600;
+  color: #555;
+}
+.reg-table tbody tr:nth-child(even) {
+  background: #fafbfd;
+}
+
+@media (max-width: 768px) {
+  .reg-modal {
+    max-height: 92vh;
+  }
+  .reg-table {
+    font-size: 11px;
+  }
+  .reg-table th,
+  .reg-table td {
+    padding: 4px 6px;
+  }
+}

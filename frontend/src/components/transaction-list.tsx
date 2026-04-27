@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Transaction, TransactionResult } from "@/lib/api";
+import { RegistryModal } from "./registry-modal";
 
 const PY_PER_M2 = 3.3058;
 type Unit = "m2" | "py";
@@ -12,6 +13,13 @@ interface Props {
   onSelect: (tx: Transaction, key: string) => void;
 }
 
+interface RegistryTarget {
+  sgg_cd: string;
+  sgg_nm: string;
+  dong: string;
+  jibun: string;
+}
+
 export function TransactionList({ data, selectedKey, onSelect }: Props) {
   const [unit, setUnit] = useState<Unit>("m2");
   const [pageSize, setPageSize] = useState(10);
@@ -19,6 +27,16 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
   const [showNearby, setShowNearby] = useState(false);
   const [nearbyPageSize, setNearbyPageSize] = useState(10);
   const [nearbyPage, setNearbyPage] = useState(1);
+  const [registryTarget, setRegistryTarget] = useState<RegistryTarget | null>(null);
+
+  const openRegistry = (tx: Transaction) => {
+    setRegistryTarget({
+      sgg_cd: tx.sgg_cd,
+      sgg_nm: tx.sgg_nm,
+      dong: tx.dong,
+      jibun: tx.jibun,
+    });
+  };
 
   const recent = data.recent_transactions;
   const nearby = data.nearby_transactions;
@@ -83,6 +101,7 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
             unit={unit}
             selectedKey={selectedKey}
             onSelect={onSelect}
+            onOpenRegistry={openRegistry}
             keyPrefix="r"
           />
           <Pagination
@@ -92,6 +111,17 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
             onChange={setPage}
           />
         </>
+      )}
+
+      {/* ─── 대장 정보 모달 ─── */}
+      {registryTarget && (
+        <RegistryModal
+          sgg_cd={registryTarget.sgg_cd}
+          dong={registryTarget.dong}
+          jibun={registryTarget.jibun}
+          sgg_nm={registryTarget.sgg_nm}
+          onClose={() => setRegistryTarget(null)}
+        />
       )}
 
       {/* ─── 인근 거래 토글 ─── */}
@@ -142,6 +172,7 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
                 unit={unit}
                 selectedKey={selectedKey}
                 onSelect={onSelect}
+                onOpenRegistry={openRegistry}
                 keyPrefix="n"
                 muted
               />
@@ -257,6 +288,7 @@ function TxTable({
   unit,
   selectedKey,
   onSelect,
+  onOpenRegistry,
   keyPrefix,
   muted,
 }: {
@@ -264,9 +296,13 @@ function TxTable({
   unit: Unit;
   selectedKey: string | null;
   onSelect: (tx: Transaction, key: string) => void;
+  onOpenRegistry: (tx: Transaction) => void;
   keyPrefix: string;
   muted?: boolean;
 }) {
+  const hasJibunFor = (t: Transaction) =>
+    !!(t.sgg_cd && t.dong && t.jibun && !t.jibun.includes("*"));
+
   return (
     <div className="trans-table-wrap">
       <table className="trans-table">
@@ -300,6 +336,19 @@ function TxTable({
                   <div className="addr-main">
                     {t.sgg_nm} {t.dong} {t.jibun || ""}
                     {t.address_estimated && <span className="est-tag">추정</span>}
+                    {hasJibunFor(t) && (
+                      <button
+                        type="button"
+                        className="reg-link"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenRegistry(t);
+                        }}
+                        title="건축물대장·토지대장 정보 보기"
+                      >
+                        대장
+                      </button>
+                    )}
                   </div>
                   {t.road_address && (
                     <div className="addr-sub">{t.road_address}</div>
@@ -310,7 +359,8 @@ function TxTable({
                 </td>
                 <td data-label="층">{t.floor != null ? `${t.floor}층` : "-"}</td>
                 <td data-label="거래금액" className="price-cell">
-                  {formatPrice(t.price_man_won)}
+                  <div className="price-main">{formatPrice(t.price_man_won)}</div>
+                  <div className="price-sub">{formatUnitPrice(t, unit)}</div>
                 </td>
                 <td data-label="기타">
                   <TagsCell tx={t} />
@@ -322,6 +372,14 @@ function TxTable({
       </table>
     </div>
   );
+}
+
+function formatUnitPrice(tx: Transaction, unit: Unit): string {
+  if (!tx.area_m2 || tx.area_m2 <= 0 || !tx.price_man_won) return "";
+  const denom = unit === "py" ? tx.area_m2 / PY_PER_M2 : tx.area_m2;
+  const per = Math.round(tx.price_man_won / denom);
+  const label = unit === "py" ? "만원/평" : "만원/㎡";
+  return `${per.toLocaleString()} ${label}`;
 }
 
 function AreaCell({ tx, unit }: { tx: Transaction; unit: Unit }) {

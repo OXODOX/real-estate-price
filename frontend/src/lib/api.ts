@@ -166,3 +166,55 @@ export async function warmupBackend(): Promise<void> {
     // 실패해도 무시 (어차피 조회 시 다시 시도됨)
   }
 }
+
+// ─────────────── Registry (건축물·토지 대장 정보) ───────────────
+
+export interface ParcelInfo {
+  bun: string;
+  ji: string;
+  sanji: string;
+  jimok_nm: string;
+  land_area: number | null;
+  land_use: string;
+  usage_nm: string;
+  price: number | null;
+}
+
+export interface BuildingInfo {
+  bun: string;
+  ji: string;
+  bld_nm: string;
+  main_purps_nm: string;
+  plat_area: number | null;
+  arch_area: number | null;
+  tot_area: number | null;
+  use_apr_day: string;
+  status: string;
+  demolish_day: string;
+}
+
+export interface RegistryResult {
+  sgg_cd: string;
+  bjdong_cd: string | null;
+  dong: string;
+  jibun: string;
+  parcels: ParcelInfo[];
+  buildings: BuildingInfo[];
+  note: string;
+}
+
+export async function fetchRegistry(req: {
+  sgg_cd: string;
+  dong: string;
+  jibun: string;
+}): Promise<RegistryResult> {
+  const res = await fetch(`${API_BASE}/api/v1/registry`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, `HTTP ${res.status}`);
+  }
+  return res.json();
+}

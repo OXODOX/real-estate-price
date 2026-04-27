@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.routers.estimate import router as estimate_router
+from app.routers.registry import router as registry_router
 
 app = FastAPI(
     title="부동산 가격 산정 API",
@@ -44,6 +45,7 @@ app.add_middleware(
 
 # API 라우터
 app.include_router(estimate_router)
+app.include_router(registry_router)
 
 # 정적 파일(HTML/JS 프런트엔드) 서빙
 BASE_DIR = Path(__file__).resolve().parent.parent
