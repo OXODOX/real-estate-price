@@ -101,11 +101,27 @@ def _parse_float(x: str) -> float | None:
         return None
 
 
+def _detect_encoding(path: Path) -> str:
+    """파일 선두를 UTF-8 으로 디코딩해보고 성공하면 utf-8, 실패하면 cp949.
+
+    국토교통부 벌크파일은 시기에 따라 인코딩이 다를 수 있어
+    (구판: cp949, 최근: utf-8) 자동 판별이 필요.
+    """
+    with open(path, "rb") as f:
+        head = f.read(4096)
+    try:
+        head.decode("utf-8")
+        return "utf-8"
+    except UnicodeDecodeError:
+        return "cp949"
+
+
 def _iter_rows(path: Path, cols: dict, status: str):
-    """CP949 | 구분 텍스트 파일을 한 줄씩 파싱 (현행/폐쇄 공통)."""
+    """| 구분 텍스트 파일을 한 줄씩 파싱 (UTF-8/CP949 자동 판별)."""
     max_idx = max(v for v in cols.values() if v is not None)
     demolish_idx = cols.get("demolish_day")
-    with open(path, "r", encoding="cp949", errors="replace") as f:
+    enc = _detect_encoding(path)
+    with open(path, "r", encoding=enc, errors="replace") as f:
         for line in f:
             line = line.rstrip("\r\n")
             if not line:
@@ -138,7 +154,9 @@ def _iter_rows(path: Path, cols: dict, status: str):
 def inspect(path: Path, cols: dict, label: str) -> None:
     """파일 상단 2행을 출력해 컬럼 인덱스 검증."""
     print(f"=== INSPECT [{label}]: {path} ===")
-    with open(path, "r", encoding="cp949", errors="replace") as f:
+    enc = _detect_encoding(path)
+    print(f"  (encoding: {enc})")
+    with open(path, "r", encoding=enc, errors="replace") as f:
         for i, line in enumerate(f):
             if i >= 2:
                 break
@@ -169,12 +187,13 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 def import_files(paths: list[Path], closed: bool) -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    if not closed:
-        # 현행 import: 기존 DB 덮어쓰기
-        if DB_PATH.exists():
-            DB_PATH.unlink()
-
     conn = sqlite3.connect(DB_PATH)
+    if not closed:
+        # 현행 import: buildings 테이블만 드롭하고 parcels/parcels_history 는 보존.
+        # (옛 동작은 DB 파일 자체를 unlink 했으나, 같은 DB 안의 다른 테이블까지
+        #  날아가서 재구축에 시간이 너무 오래 걸림.)
+        conn.execute("DROP TABLE IF EXISTS buildings")
+        conn.commit()
     _ensure_schema(conn)
     conn.execute("PRAGMA journal_mode = OFF")
     conn.execute("PRAGMA synchronous = OFF")
