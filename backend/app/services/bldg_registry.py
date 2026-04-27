@@ -507,6 +507,60 @@ def _existed_at(b: dict, deal_ymd: str) -> bool:
     return True
 
 
+def _verified_count(
+    b: dict,
+    tx_tot: float,
+    tx_plat: float,
+    tx_arch: float,
+    tx_year: int,
+    tx_use: str,
+    is_nonresi: bool,
+    tol: float,
+) -> int:
+    """후보 건물이 거래의 어떤 필드들을 통과시키는지 점수화.
+
+    한 필드라도 거래값과 어긋나면 0(불일치). 거래에 값이 있는데 대장에 0/공백
+    이라 비교 불가한 경우는 검증 생략(점수 미가산). 모든 검증을 통과했을 때
+    점수 = 통과한 필드 수. 0 점이면 호출자가 후보에서 제외.
+    """
+    verified = 0
+    if tx_tot > 0:
+        bv = b.get("totArea")
+        if bv is not None and bv > 0:
+            if abs(bv - tx_tot) > tol:
+                return 0
+            verified += 1
+    if is_nonresi and tx_use:
+        mp = (b.get("mainPurpsCdNm") or "").strip()
+        if mp:
+            if not (mp.startswith(tx_use) or tx_use.startswith(mp)):
+                return 0
+            verified += 1
+    if tx_plat > 0:
+        bv = b.get("platArea")
+        if bv is not None and bv > 0:
+            if abs(bv - tx_plat) > tol:
+                return 0
+            verified += 1
+    if tx_arch > 0:
+        bv = b.get("archArea")
+        if bv is not None and bv > 0:
+            if abs(bv - tx_arch) > tol:
+                return 0
+            verified += 1
+    if tx_year > 1900:
+        apr = str(b.get("useAprDay") or "").strip()
+        if apr and len(apr) >= 4:
+            try:
+                by = int(apr[:4])
+                if by != tx_year:
+                    return 0
+                verified += 1
+            except ValueError:
+                pass
+    return verified
+
+
 def _match_building(tx, buildings: list[dict]) -> tuple[str | None, bool]:
     """거래와 건축물대장 후보들을 완전일치 기반으로 매칭.
 
@@ -537,73 +591,54 @@ def _match_building(tx, buildings: list[dict]) -> tuple[str | None, bool]:
     # MOLIT API 는 유형별로 buildingAr 의 의미가 다르다:
     #   - SHTrade(단독다가구): totalFloorAr=연면적, buildingAr=건축면적, plottageAr=대지
     #   - NrgTrade(상업업무용) / InduTrade(공장창고):
-    #       buildingAr 이 **연면적**(totArea) 의미이며 건축면적/연면적 구분 필드 없음.
-    # 따라서 상업/공장 유형은 tx.building_ar 를 totArea 후보값으로 매핑해야
-    # 건축물대장 tot_area 와 정확일치 비교가 가능.
+    #       buildingAr 가 대장 totArea(연면적) 와 정확 일치하지 않는 케이스가
+    #       흔하다 (예: 마포 동교 179-27 → MOLIT 243.2 vs 대장 259.14, 6%차).
+    #       정확일치를 강제하면 정상 매물도 빠지므로, 상업/공장은 tx_tot 자체를
+    #       사용하지 않고 **대지면적 + 사용승인연도 + 주용도** 로 특정.
     pt_val = getattr(getattr(tx, "property_type", None), "value", "") or ""
-    if pt_val in ("상업업무용", "공장창고"):
-        tx_tot = tx.building_ar or tx.total_floor_ar or 0
+    is_nonresi = pt_val in ("상업업무용", "공장창고")
+    if is_nonresi:
+        tx_tot = 0  # 의미 불일치 → 검증 제외
         tx_plat = tx.plottage_ar or 0
-        tx_arch = 0  # 건축면적 정보 없음 → 검증 생략
+        tx_arch = 0
     else:
         tx_tot = tx.total_floor_ar or 0
         tx_plat = tx.plottage_ar or 0
         tx_arch = tx.building_ar or 0
     tx_year = tx.build_year or 0
+    tx_use = (getattr(tx, "building_use", "") or "").strip()  # 상업/공장 보조
 
     # 거래가 제공한 필드가 하나도 없으면 검증 불가 → 보류
-    if tx_tot <= 0 and tx_plat <= 0 and tx_arch <= 0 and tx_year <= 0:
+    if (
+        tx_tot <= 0
+        and tx_plat <= 0
+        and tx_arch <= 0
+        and tx_year <= 0
+        and not (is_nonresi and tx_use)
+    ):
         return None, False
 
     TOL = 0.01  # 면적 허용 오차 (㎡)
 
-    def exactly_matches(b: dict) -> bool:
-        # 거래가 제공한 각 필드가 건축물대장과 정확히 일치해야 함.
-        # 거래에 없는 필드 / 대장에 값 없는 필드(=0 또는 공백) 는 검증 생략.
-        # (데이터 품질 이슈로 결측된 필드까지 정확일치를 요구하면 오래된 건물이
-        #  전부 복원 실패하므로, "값이 있는 필드만 정확일치" 정책으로 완화.)
-        # 단, 실제로 검증된 필드가 하나라도 있어야 매칭 인정 (무검증 통과 방지).
-        verified = 0
-        if tx_tot > 0:
-            bv = b.get("totArea")
-            if bv is not None and bv > 0:
-                if abs(bv - tx_tot) > TOL:
-                    return False
-                verified += 1
-        if tx_plat > 0:
-            bv = b.get("platArea")
-            # 대장 대지면적=0 은 대지 분리등록 안 된 구건물 케이스 → 검증 생략
-            if bv is not None and bv > 0:
-                if abs(bv - tx_plat) > TOL:
-                    return False
-                verified += 1
-        if tx_arch > 0:
-            bv = b.get("archArea")
-            if bv is not None and bv > 0:
-                if abs(bv - tx_arch) > TOL:
-                    return False
-                verified += 1
-        # 연도 체크: MOLIT year 가 1900 이하(placeholder)이거나
-        # 대장 사용승인일이 비어있으면 연도 검증 생략.
-        if tx_year > 1900:
-            apr = str(b.get("useAprDay") or "").strip()
-            if apr and len(apr) >= 4:
-                try:
-                    by = int(apr[:4])
-                    if by != tx_year:
-                        return False
-                    verified += 1
-                except ValueError:
-                    pass
-        return verified > 0
+    # 검증 점수(verified count) 까지 같이 뽑아 best score 만 채택.
+    # 같은 점수의 후보가 여럿이면 모호 → 보류.
+    scored: list[tuple[int, dict]] = []
+    for b in candidates:
+        v = _verified_count(
+            b, tx_tot, tx_plat, tx_arch, tx_year, tx_use, is_nonresi, TOL
+        )
+        if v > 0:
+            scored.append((v, b))
 
-    exact = [b for b in candidates if exactly_matches(b)]
-
-    # 정확히 하나일 때만 복원. 0개(검증 실패) 또는 2개 이상(모호)은 보류.
-    if len(exact) != 1:
+    if not scored:
         return None, False
 
-    b = exact[0]
+    max_v = max(s for s, _ in scored)
+    top = [b for s, b in scored if s == max_v]
+    if len(top) != 1:
+        return None, False
+
+    b = top[0]
     bun = str(b.get("bun", "")).lstrip("0") or "0"
     ji = str(b.get("ji", "")).lstrip("0")
     return (f"{bun}-{ji}" if ji and ji != "0" else bun), True
