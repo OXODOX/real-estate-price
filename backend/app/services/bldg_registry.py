@@ -541,28 +541,37 @@ def _verified_count(
 ) -> int:
     """후보 건물이 거래의 어떤 필드들을 통과시키는지 점수화.
 
-    한 필드라도 거래값과 어긋나면 0(불일치). 거래에 값이 있는데 대장에 0/공백
-    이라 비교 불가한 경우는 검증 생략(점수 미가산). 모든 검증을 통과했을 때
-    점수 = 통과한 필드 수. 0 점이면 호출자가 후보에서 제외.
+    정책:
+    - 주거(단독·다가구·연립): MOLIT 필드 의미가 잘 정의돼 있어 어긋나면 즉시 탈락.
+    - 상업업무용·공장창고: MOLIT 의 buildingAr / plottageAr / buildingUse 가
+      각각 대장 totArea / platArea / mainPurpsCdNm 와 종종 다른 의미로
+      쓰이는 게 관찰됨. 따라서 어긋나도 즉시 탈락 대신 그 필드만 검증
+      생략. 점수 기반 유일 최댓값 후보를 호출자가 선택.
+    - 사용승인연도(buildYear)는 모든 유형에서 strict (어긋나면 즉시 탈락).
+      가장 신뢰도 높고 신축·옛건물 혼동을 막는 핵심 signal.
     """
     verified = 0
+
+    # 연면적 (totArea ↔ tx_tot)
     if tx_tot > 0:
         bv = b.get("totArea")
         if bv is not None and bv > 0:
-            if abs(bv - tx_tot) > tol:
-                return 0
-            verified += 1
+            if abs(bv - tx_tot) <= tol:
+                verified += 1
+            elif not is_nonresi:
+                return 0  # 주거: 정확일치 강제
+
+    # 주용도 (mainPurpsCdNm ↔ tx_use)
     if is_nonresi and tx_use:
         mp = (b.get("mainPurpsCdNm") or "").strip()
         if mp:
-            if not _purpose_compatible(tx_use, mp):
-                return 0
-            verified += 1
+            if _purpose_compatible(tx_use, mp):
+                verified += 1
+            # 비호환이어도 reject 하지 않음 — '숙박' vs '제2종근린생활시설' 처럼
+            # 등록 분류와 실제 사용 용도가 다른 케이스가 흔함.
+
+    # 대지면적 (buildings.platArea OR parcels.land_area ↔ tx_plat)
     if tx_plat > 0:
-        # MOLIT 의 plottageAr 는 토지대장 기준 면적이라 건축물대장 plat_area
-        # 와 다를 수 있다 (건축물대장 = 건물 점유 대지, 토지대장 = 필지 전체).
-        # 따라서 buildings.plat_area 또는 parcels.land_area 중 하나라도
-        # 일치하면 통과. 둘 다 어긋나야만 탈락.
         bv = b.get("platArea") or 0
         bv_parcel = 0.0
         if parcel_area_by_bunji is not None:
@@ -572,10 +581,10 @@ def _verified_count(
         bp_match = (bv_parcel > 0 and abs(bv_parcel - tx_plat) <= tol)
         if bv_match or bp_match:
             verified += 1
-        elif bv > 0 or bv_parcel > 0:
-            # 적어도 한쪽에 값이 있는데 둘 다 어긋남 → 후보 탈락
+        elif (bv > 0 or bv_parcel > 0) and not is_nonresi:
+            # 주거: 양쪽 다 결측이 아닌데 어긋남 → 탈락
             return 0
-        # 둘 다 0(=결측)인 경우는 검증 생략 (verified 미가산)
+        # 상업/공장: 어긋나도 skip
     if tx_arch > 0:
         bv = b.get("archArea")
         if bv is not None and bv > 0:
@@ -636,7 +645,10 @@ def _match_building(
     pt_val = getattr(getattr(tx, "property_type", None), "value", "") or ""
     is_nonresi = pt_val in ("상업업무용", "공장창고")
     if is_nonresi:
-        tx_tot = 0  # 의미 불일치 → 검증 제외
+        # 상업/공장: buildingAr 가 대장 totArea 와 정확 일치하는 케이스도
+        # 흔하므로(예: 노고산 57-20 → 둘 다 929.09) signal 로 활용.
+        # 다만 어긋나도 reject 하지 않고 skip (의미 불일치 가능성).
+        tx_tot = tx.building_ar or tx.total_floor_ar or 0
         tx_plat = tx.plottage_ar or 0
         tx_arch = 0
     else:
