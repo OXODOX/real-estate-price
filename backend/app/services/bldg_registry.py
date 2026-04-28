@@ -516,6 +516,7 @@ def _verified_count(
     tx_use: str,
     is_nonresi: bool,
     tol: float,
+    parcel_area_by_bunji: dict | None = None,
 ) -> int:
     """후보 건물이 거래의 어떤 필드들을 통과시키는지 점수화.
 
@@ -537,11 +538,23 @@ def _verified_count(
                 return 0
             verified += 1
     if tx_plat > 0:
-        bv = b.get("platArea")
-        if bv is not None and bv > 0:
-            if abs(bv - tx_plat) > tol:
-                return 0
+        # MOLIT 의 plottageAr 는 토지대장 기준 면적이라 건축물대장 plat_area
+        # 와 다를 수 있다 (건축물대장 = 건물 점유 대지, 토지대장 = 필지 전체).
+        # 따라서 buildings.plat_area 또는 parcels.land_area 중 하나라도
+        # 일치하면 통과. 둘 다 어긋나야만 탈락.
+        bv = b.get("platArea") or 0
+        bv_parcel = 0.0
+        if parcel_area_by_bunji is not None:
+            key = (str(b.get("bun", "")).zfill(4), str(b.get("ji", "")).zfill(4))
+            bv_parcel = parcel_area_by_bunji.get(key) or 0
+        bv_match = (bv > 0 and abs(bv - tx_plat) <= tol)
+        bp_match = (bv_parcel > 0 and abs(bv_parcel - tx_plat) <= tol)
+        if bv_match or bp_match:
             verified += 1
+        elif bv > 0 or bv_parcel > 0:
+            # 적어도 한쪽에 값이 있는데 둘 다 어긋남 → 후보 탈락
+            return 0
+        # 둘 다 0(=결측)인 경우는 검증 생략 (verified 미가산)
     if tx_arch > 0:
         bv = b.get("archArea")
         if bv is not None and bv > 0:
@@ -561,7 +574,11 @@ def _verified_count(
     return verified
 
 
-def _match_building(tx, buildings: list[dict]) -> tuple[str | None, bool]:
+def _match_building(
+    tx,
+    buildings: list[dict],
+    parcel_area_by_bunji: dict | None = None,
+) -> tuple[str | None, bool]:
     """거래와 건축물대장 후보들을 완전일치 기반으로 매칭.
 
     정책:
@@ -625,7 +642,8 @@ def _match_building(tx, buildings: list[dict]) -> tuple[str | None, bool]:
     scored: list[tuple[int, dict]] = []
     for b in candidates:
         v = _verified_count(
-            b, tx_tot, tx_plat, tx_arch, tx_year, tx_use, is_nonresi, TOL
+            b, tx_tot, tx_plat, tx_arch, tx_year, tx_use, is_nonresi, TOL,
+            parcel_area_by_bunji,
         )
         if v > 0:
             scored.append((v, b))
@@ -877,6 +895,19 @@ async def enrich_masked_jibun(
         if not buildings:
             return
 
+        # 토지대장(parcels) 면적도 같이 인덱싱해 매칭에 활용.
+        # MOLIT plottageAr 가 종종 건축물대장 plat_area 가 아닌
+        # 토지대장 land_area 를 따라가는 케이스 보정용.
+        parcels = await _fetch_all_parcels(sgg_cd, bjdong)
+        parcel_area_by_bunji: dict[tuple[str, str], float] = {}
+        for p in parcels:
+            la = p.get("landArea")
+            if la is None or la <= 0:
+                continue
+            k = (str(p.get("bun", "")).zfill(4), str(p.get("ji", "")).zfill(4))
+            # 동일 (bun,ji) 가 여러 개 있을 일은 거의 없으나, 있을 경우 첫값 유지
+            parcel_area_by_bunji.setdefault(k, la)
+
         # 동일 마스킹 패턴(예: "1**")을 공유하는 거래가 많을 때,
         # 패턴별로 후보 건물을 한 번만 필터링해 O(B*T) → O(B*P + C*T) 로 축소.
         pattern_cache: dict[str, list[dict]] = {}
@@ -899,7 +930,7 @@ async def enrich_masked_jibun(
             subset = candidates_for(masked_bun)
             if not subset:
                 continue
-            jibun, certain = _match_building(t, subset)
+            jibun, certain = _match_building(t, subset, parcel_area_by_bunji)
             if jibun:
                 t.estimated_jibun = jibun
                 t.address_estimated = True
