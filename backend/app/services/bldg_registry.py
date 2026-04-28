@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sqlite3
 from pathlib import Path
 from urllib.parse import unquote
@@ -507,6 +508,26 @@ def _existed_at(b: dict, deal_ymd: str) -> bool:
     return True
 
 
+_USE_PREFIX_RE = re.compile(r"^제\s*[0-9]+\s*종\s*")
+
+
+def _purpose_compatible(tx_use: str, mp: str) -> bool:
+    """MOLIT buildingUse 와 대장 mainPurpsCdNm 이 같은 용도 카테고리인지.
+
+    예: 거래 '제2종근린생활' ↔ 대장 '근린생활시설' (포괄 분류) → 호환.
+        거래 '업무'         ↔ 대장 '업무시설'             → 호환.
+        거래 '제2종근린생활' ↔ 대장 '단독주택'             → 비호환.
+
+    각각의 '제N종' 접두 + '시설' 접미를 제거한 뒤 한쪽이 다른 쪽의 부분
+    문자열이면 호환으로 간주. 둘 중 하나가 비어 있으면 호출자가 skip.
+    """
+    a = _USE_PREFIX_RE.sub("", tx_use).removesuffix("시설").strip()
+    b = _USE_PREFIX_RE.sub("", mp).removesuffix("시설").strip()
+    if not a or not b:
+        return False
+    return a in b or b in a
+
+
 def _verified_count(
     b: dict,
     tx_tot: float,
@@ -534,7 +555,7 @@ def _verified_count(
     if is_nonresi and tx_use:
         mp = (b.get("mainPurpsCdNm") or "").strip()
         if mp:
-            if not (mp.startswith(tx_use) or tx_use.startswith(mp)):
+            if not _purpose_compatible(tx_use, mp):
                 return 0
             verified += 1
     if tx_plat > 0:
