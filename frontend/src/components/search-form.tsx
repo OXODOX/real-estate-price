@@ -106,9 +106,9 @@ export function SearchForm({ onSubmit, loading }: Props) {
           </span>
         ) : (
           <span className="hint">
-            자유롭게 입력 가능 (예: &quot;경기도 용인시 수지구 상현동&quot;,
-            &quot;강남구 역삼동 679-13&quot;).<br />
-            동·지번·단지명을 포함할수록 정확도가 높아집니다.
+            최소 <b>시·군·구</b> 단위까지는 입력해야 조회됩니다 (예: &quot;경기도 용인시 수지구&quot;,
+            &quot;강남구&quot;).<br />
+            읍·면·동·지번·단지명까지 입력할수록 정확도가 높아집니다.
           </span>
         )}
       </div>
