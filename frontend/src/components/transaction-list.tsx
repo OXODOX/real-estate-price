@@ -6,6 +6,8 @@ import { RegistryModal } from "./registry-modal";
 
 const PY_PER_M2 = 3.3058;
 type Unit = "m2" | "py";
+type SortKey = "date" | "price" | "area";
+type SortDir = "asc" | "desc";
 
 interface Props {
   data: TransactionResult;
@@ -20,6 +22,29 @@ interface RegistryTarget {
   jibun: string;
 }
 
+function dateKey(t: Transaction): number {
+  return t.deal_year * 10000 + t.deal_month * 100 + t.deal_day;
+}
+
+function sortTxs(arr: Transaction[], key: SortKey, dir: SortDir): Transaction[] {
+  const sign = dir === "asc" ? 1 : -1;
+  // 계약일 / 거래금액 / 면적 별 정렬값 추출. 결측값(0/null) 은 항상 뒤로.
+  const valueOf = (t: Transaction): number => {
+    if (key === "date") return dateKey(t);
+    if (key === "price") return t.price_man_won || 0;
+    return t.area_m2 || 0;
+  };
+  return [...arr].sort((a, b) => {
+    const va = valueOf(a);
+    const vb = valueOf(b);
+    // 0 (결측) 은 정렬 방향과 무관하게 뒤로 보내기
+    if (va === 0 && vb !== 0) return 1;
+    if (vb === 0 && va !== 0) return -1;
+    if (va === vb) return 0;
+    return va < vb ? -1 * sign : 1 * sign;
+  });
+}
+
 export function TransactionList({ data, selectedKey, onSelect }: Props) {
   const [unit, setUnit] = useState<Unit>("m2");
   const [pageSize, setPageSize] = useState(10);
@@ -28,6 +53,8 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
   const [nearbyPageSize, setNearbyPageSize] = useState(10);
   const [nearbyPage, setNearbyPage] = useState(1);
   const [registryTarget, setRegistryTarget] = useState<RegistryTarget | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const openRegistry = (tx: Transaction) => {
     setRegistryTarget({
@@ -38,8 +65,26 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
     });
   };
 
-  const recent = data.recent_transactions;
-  const nearby = data.nearby_transactions;
+  const onHeaderClick = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      // 계약일/금액/면적 모두 큰 값(최신, 비싼, 큰면적)이 먼저 보이는 게 자연스러움
+      setSortDir("desc");
+    }
+    setPage(1);
+    setNearbyPage(1);
+  };
+
+  const recent = useMemo(
+    () => sortTxs(data.recent_transactions, sortKey, sortDir),
+    [data.recent_transactions, sortKey, sortDir],
+  );
+  const nearby = useMemo(
+    () => sortTxs(data.nearby_transactions, sortKey, sortDir),
+    [data.nearby_transactions, sortKey, sortDir],
+  );
 
   const totalPages = Math.max(1, Math.ceil(recent.length / pageSize));
   const pageItems = recent.slice((page - 1) * pageSize, page * pageSize);
@@ -102,6 +147,9 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
             selectedKey={selectedKey}
             onSelect={onSelect}
             onOpenRegistry={openRegistry}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={onHeaderClick}
             keyPrefix="r"
           />
           <Pagination
@@ -173,6 +221,9 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
                 selectedKey={selectedKey}
                 onSelect={onSelect}
                 onOpenRegistry={openRegistry}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onHeaderClick}
                 keyPrefix="n"
                 muted
               />
@@ -289,6 +340,9 @@ function TxTable({
   selectedKey,
   onSelect,
   onOpenRegistry,
+  sortKey,
+  sortDir,
+  onSort,
   keyPrefix,
   muted,
 }: {
@@ -297,23 +351,41 @@ function TxTable({
   selectedKey: string | null;
   onSelect: (tx: Transaction, key: string) => void;
   onOpenRegistry: (tx: Transaction) => void;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
   keyPrefix: string;
   muted?: boolean;
 }) {
   const hasJibunFor = (t: Transaction) =>
     !!(t.sgg_cd && t.dong && t.jibun && !t.jibun.includes("*"));
 
+  const sortIndicator = (key: SortKey) => {
+    if (sortKey !== key) return <span className="sort-arrow inactive">↕</span>;
+    return <span className="sort-arrow active">{sortDir === "asc" ? "▲" : "▼"}</span>;
+  };
+
+  const sortableTh = (key: SortKey, label: string) => (
+    <th
+      className="sortable"
+      onClick={() => onSort(key)}
+      title={`${label} 기준 정렬 (다시 클릭 시 방향 전환)`}
+    >
+      {label} {sortIndicator(key)}
+    </th>
+  );
+
   return (
     <div className="trans-table-wrap">
       <table className="trans-table">
         <thead>
           <tr>
-            <th>계약일</th>
+            {sortableTh("date", "계약일")}
             <th>단지/건물</th>
             <th>주소</th>
-            <th>면적</th>
+            {sortableTh("area", "면적")}
             <th>층</th>
-            <th>거래금액</th>
+            {sortableTh("price", "거래금액")}
             <th>기타</th>
           </tr>
         </thead>

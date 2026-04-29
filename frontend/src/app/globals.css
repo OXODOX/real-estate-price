@@ -503,6 +503,31 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────
+   정렬 가능한 테이블 헤더
+   ────────────────────────────────────────────────────────── */
+.trans-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.trans-table th.sortable:hover {
+  background: #eef3fc;
+}
+.sort-arrow {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+.sort-arrow.inactive {
+  color: #b8c0cc;
+}
+.sort-arrow.active {
+  color: var(--primary);
+}
+
+/* ──────────────────────────────────────────────────────────
    거래금액 단가 (만원/㎡, 만원/평)
    ────────────────────────────────────────────────────────── */
 .price-cell .price-main {
