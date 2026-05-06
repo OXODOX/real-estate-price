@@ -94,10 +94,20 @@ def _query_sqlite(sigungu_cd: str, bjdong_cd: str) -> list[dict] | None:
             has_demolish = "demolish_day" in cols
             status_col = "status" if has_status else "'active' AS status"
             demolish_col = "demolish_day" if has_demolish else "NULL AS demolish_day"
+            # 확장 컬럼이 없는 옛 DB 호환: 컬럼별 존재 여부 확인 후 SELECT 동적 구성
+            ext_cols = [
+                "coverage_ratio", "floor_ratio", "struct_nm", "etc_purps",
+                "roof_nm", "household_cnt", "family_cnt", "ground_floors",
+                "under_floors", "parking_cnt",
+            ]
+            ext_select = ", ".join(
+                c if c in cols else f"NULL AS {c}" for c in ext_cols
+            )
             cur = conn.execute(
                 f"""
                 SELECT bun, ji, bld_nm, plat_area, arch_area, tot_area,
-                       main_purps_nm, use_apr_day, {status_col}, {demolish_col}
+                       main_purps_nm, use_apr_day, {status_col}, {demolish_col},
+                       {ext_select}
                 FROM buildings
                 WHERE sigungu_cd = ? AND bjdong_cd = ?
                 """,
@@ -120,6 +130,17 @@ def _query_sqlite(sigungu_cd: str, bjdong_cd: str) -> list[dict] | None:
             "useAprDay": r[7] or "",
             "status": r[8] or "active",
             "demolishDay": r[9] or "",
+            # 확장 컬럼 (구 DB 면 None)
+            "coverageRatio": r[10],
+            "floorRatio": r[11],
+            "structNm": r[12] or "",
+            "etcPurps": r[13] or "",
+            "roofNm": r[14] or "",
+            "householdCnt": r[15],
+            "familyCnt": r[16],
+            "groundFloors": r[17],
+            "underFloors": r[18],
+            "parkingCnt": r[19],
         }
         for r in rows
     ]

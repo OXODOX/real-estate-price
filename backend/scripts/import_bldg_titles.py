@@ -49,12 +49,22 @@ COLS_ACTIVE = {
     "bun": 11,
     "ji": 12,
     "bld_nm": 7,
+    "coverage_ratio": 27,   # 건폐율 (%)
     "plat_area": 25,
     "arch_area": 26,
     "tot_area": 28,
+    "floor_ratio": 30,      # 용적률 (%)
+    "struct_nm": 32,        # 구조 (예: '철근콘크리트구조')
     "main_purps_nm": 35,
+    "etc_purps": 36,        # 기타용도 (예: '다세대주택(9세대)', '어린이집')
+    "roof_nm": 38,          # 지붕 (예: '(철근)콘크리트')
+    "household_cnt": 40,    # 세대수
+    "family_cnt": 41,       # 가구수
+    "ground_floors": 43,    # 지상층수
+    "under_floors": 44,     # 지하층수
+    "parking_cnt": 57,      # 총주차대수
     "use_apr_day": 60,
-    "demolish_day": None,  # 현행 레코드는 말소일자 없음
+    "demolish_day": None,   # 현행 레코드는 말소일자 없음
 }
 
 # 폐쇄말소 표제부(mart_shtreg_03): 현행 대비 +3 시프트 + 말소일자 at [3].
@@ -64,28 +74,48 @@ COLS_CLOSED = {
     "bun": 14,
     "ji": 15,
     "bld_nm": 10,
+    "coverage_ratio": 30,
     "plat_area": 28,
     "arch_area": 29,
     "tot_area": 31,
+    "floor_ratio": 33,
+    "struct_nm": 35,
     "main_purps_nm": 38,
+    "etc_purps": 39,
+    "roof_nm": 41,
+    "household_cnt": 43,
+    "family_cnt": 44,
+    "ground_floors": 46,
+    "under_floors": 47,
+    "parking_cnt": 60,
     "use_apr_day": 63,
-    "demolish_day": 3,   # 말소일자 (YYYYMMDD)
+    "demolish_day": 3,
 }
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS buildings (
-    sigungu_cd    TEXT NOT NULL,
-    bjdong_cd     TEXT NOT NULL,
-    bun           TEXT NOT NULL,
-    ji            TEXT NOT NULL,
-    bld_nm        TEXT,
-    plat_area     REAL,
-    arch_area     REAL,
-    tot_area      REAL,
-    main_purps_nm TEXT,
-    use_apr_day   TEXT,
-    status        TEXT NOT NULL DEFAULT 'active',   -- 'active' | 'closed'
-    demolish_day  TEXT                               -- 'closed' 행만 값 존재
+    sigungu_cd     TEXT NOT NULL,
+    bjdong_cd      TEXT NOT NULL,
+    bun            TEXT NOT NULL,
+    ji             TEXT NOT NULL,
+    bld_nm         TEXT,
+    plat_area      REAL,
+    arch_area      REAL,
+    tot_area       REAL,
+    coverage_ratio REAL,
+    floor_ratio    REAL,
+    struct_nm      TEXT,
+    main_purps_nm  TEXT,
+    etc_purps      TEXT,
+    roof_nm        TEXT,
+    household_cnt  INTEGER,
+    family_cnt     INTEGER,
+    ground_floors  INTEGER,
+    under_floors   INTEGER,
+    parking_cnt    INTEGER,
+    use_apr_day    TEXT,
+    status         TEXT NOT NULL DEFAULT 'active',
+    demolish_day   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_loc ON buildings(sigungu_cd, bjdong_cd);
 """
@@ -99,6 +129,25 @@ def _parse_float(x: str) -> float | None:
         return float(x)
     except ValueError:
         return None
+
+
+def _parse_int(x: str) -> int | None:
+    """문자열 → int. 빈값/비숫자/'0'은 None 으로 취급해 의미있는 값만 보존."""
+    x = (x or "").strip()
+    if not x:
+        return None
+    try:
+        n = int(float(x))
+        return n if n != 0 else None
+    except ValueError:
+        return None
+
+
+def _safe_get(parts: list[str], idx: int | None) -> str:
+    """parts[idx] 안전 추출. idx가 None 이거나 범위 초과면 빈 문자열."""
+    if idx is None or idx < 0 or idx >= len(parts):
+        return ""
+    return parts[idx]
 
 
 def _detect_encoding(path: Path) -> str:
@@ -142,7 +191,17 @@ def _iter_rows(path: Path, cols: dict, status: str):
                     _parse_float(parts[cols["plat_area"]]),
                     _parse_float(parts[cols["arch_area"]]),
                     _parse_float(parts[cols["tot_area"]]),
+                    _parse_float(_safe_get(parts, cols.get("coverage_ratio"))),
+                    _parse_float(_safe_get(parts, cols.get("floor_ratio"))),
+                    _safe_get(parts, cols.get("struct_nm")).strip(),
                     parts[cols["main_purps_nm"]].strip(),
+                    _safe_get(parts, cols.get("etc_purps")).strip(),
+                    _safe_get(parts, cols.get("roof_nm")).strip(),
+                    _parse_int(_safe_get(parts, cols.get("household_cnt"))),
+                    _parse_int(_safe_get(parts, cols.get("family_cnt"))),
+                    _parse_int(_safe_get(parts, cols.get("ground_floors"))),
+                    _parse_int(_safe_get(parts, cols.get("under_floors"))),
+                    _parse_int(_safe_get(parts, cols.get("parking_cnt"))),
                     parts[cols["use_apr_day"]].strip(),
                     status,
                     demolish_day,
@@ -173,15 +232,29 @@ def inspect(path: Path, cols: dict, label: str) -> None:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """테이블이 구 스키마면(status/demolish_day 없음) 확장해 재임포트 안전하게."""
+    """테이블이 구 스키마면 누락 컬럼을 ALTER TABLE 로 보강해 재임포트 안전하게."""
     cols = [r[1] for r in conn.execute("PRAGMA table_info(buildings)").fetchall()]
     if not cols:
         conn.executescript(SCHEMA)
         return
-    if "status" not in cols:
-        conn.execute("ALTER TABLE buildings ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
-    if "demolish_day" not in cols:
-        conn.execute("ALTER TABLE buildings ADD COLUMN demolish_day TEXT")
+    # 컬럼명 → ALTER 문장
+    add_cols = [
+        ("status", "TEXT NOT NULL DEFAULT 'active'"),
+        ("demolish_day", "TEXT"),
+        ("coverage_ratio", "REAL"),
+        ("floor_ratio", "REAL"),
+        ("struct_nm", "TEXT"),
+        ("etc_purps", "TEXT"),
+        ("roof_nm", "TEXT"),
+        ("household_cnt", "INTEGER"),
+        ("family_cnt", "INTEGER"),
+        ("ground_floors", "INTEGER"),
+        ("under_floors", "INTEGER"),
+        ("parking_cnt", "INTEGER"),
+    ]
+    for name, decl in add_cols:
+        if name not in cols:
+            conn.execute(f"ALTER TABLE buildings ADD COLUMN {name} {decl}")
 
 
 def import_files(paths: list[Path], closed: bool) -> None:
@@ -212,9 +285,12 @@ def import_files(paths: list[Path], closed: bool) -> None:
     t0 = time.time()
     insert_sql = (
         "INSERT INTO buildings "
-        "(sigungu_cd, bjdong_cd, bun, ji, bld_nm, plat_area, arch_area, tot_area, "
-        "main_purps_nm, use_apr_day, status, demolish_day) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+        "(sigungu_cd, bjdong_cd, bun, ji, bld_nm, "
+        " plat_area, arch_area, tot_area, coverage_ratio, floor_ratio, "
+        " struct_nm, main_purps_nm, etc_purps, roof_nm, "
+        " household_cnt, family_cnt, ground_floors, under_floors, parking_cnt, "
+        " use_apr_day, status, demolish_day) "
+        "VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?)"
     )
     for path in paths:
         print(f"→ {path}  (status={status})")

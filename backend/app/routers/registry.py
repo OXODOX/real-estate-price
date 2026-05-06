@@ -58,12 +58,22 @@ class BuildingInfo(BaseModel):
     ji: str
     bld_nm: str
     main_purps_nm: str
-    plat_area: float | None
-    arch_area: float | None
-    tot_area: float | None
-    use_apr_day: str
-    status: str
-    demolish_day: str
+    etc_purps: str = ""
+    plat_area: float | None = None
+    arch_area: float | None = None
+    tot_area: float | None = None
+    coverage_ratio: float | None = None
+    floor_ratio: float | None = None
+    struct_nm: str = ""
+    roof_nm: str = ""
+    household_cnt: int | None = None
+    family_cnt: int | None = None
+    ground_floors: int | None = None
+    under_floors: int | None = None
+    parking_cnt: int | None = None
+    use_apr_day: str = ""
+    status: str = "active"
+    demolish_day: str = ""
 
 
 class RegistryResponse(BaseModel):
@@ -169,9 +179,19 @@ async def _compute_registry_local(req: RegistryRequest) -> RegistryResponse:
                 ji=str(b.get("ji") or "").lstrip("0"),
                 bld_nm=b.get("bldNm") or "",
                 main_purps_nm=b.get("mainPurpsCdNm") or "",
+                etc_purps=b.get("etcPurps") or "",
                 plat_area=b.get("platArea"),
                 arch_area=b.get("archArea"),
                 tot_area=b.get("totArea"),
+                coverage_ratio=b.get("coverageRatio"),
+                floor_ratio=b.get("floorRatio"),
+                struct_nm=b.get("structNm") or "",
+                roof_nm=b.get("roofNm") or "",
+                household_cnt=b.get("householdCnt"),
+                family_cnt=b.get("familyCnt"),
+                ground_floors=b.get("groundFloors"),
+                under_floors=b.get("underFloors"),
+                parking_cnt=b.get("parkingCnt"),
                 use_apr_day=b.get("useAprDay") or "",
                 status=b.get("status") or "active",
                 demolish_day=b.get("demolishDay") or "",

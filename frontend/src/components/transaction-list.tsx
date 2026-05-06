@@ -53,8 +53,12 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
   const [nearbyPageSize, setNearbyPageSize] = useState(10);
   const [nearbyPage, setNearbyPage] = useState(1);
   const [registryTarget, setRegistryTarget] = useState<RegistryTarget | null>(null);
+  // 근거 거래·인근 거래 정렬 상태 분리. 같은 날짜에 두 표를 다른 기준으로
+  // 보고 싶다는 요구가 흔해서 독립 관리.
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [nearbySortKey, setNearbySortKey] = useState<SortKey>("date");
+  const [nearbySortDir, setNearbySortDir] = useState<SortDir>("desc");
 
   const openRegistry = (tx: Transaction) => {
     setRegistryTarget({
@@ -70,10 +74,18 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      // 계약일/금액/면적 모두 큰 값(최신, 비싼, 큰면적)이 먼저 보이는 게 자연스러움
       setSortDir("desc");
     }
     setPage(1);
+  };
+
+  const onNearbyHeaderClick = (key: SortKey) => {
+    if (nearbySortKey === key) {
+      setNearbySortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setNearbySortKey(key);
+      setNearbySortDir("desc");
+    }
     setNearbyPage(1);
   };
 
@@ -82,8 +94,8 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
     [data.recent_transactions, sortKey, sortDir],
   );
   const nearby = useMemo(
-    () => sortTxs(data.nearby_transactions, sortKey, sortDir),
-    [data.nearby_transactions, sortKey, sortDir],
+    () => sortTxs(data.nearby_transactions, nearbySortKey, nearbySortDir),
+    [data.nearby_transactions, nearbySortKey, nearbySortDir],
   );
 
   const totalPages = Math.max(1, Math.ceil(recent.length / pageSize));
@@ -221,9 +233,9 @@ export function TransactionList({ data, selectedKey, onSelect }: Props) {
                 selectedKey={selectedKey}
                 onSelect={onSelect}
                 onOpenRegistry={openRegistry}
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={onHeaderClick}
+                sortKey={nearbySortKey}
+                sortDir={nearbySortDir}
+                onSort={onNearbyHeaderClick}
                 keyPrefix="n"
                 muted
               />

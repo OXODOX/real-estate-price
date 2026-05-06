@@ -108,53 +108,84 @@ export function RegistryModal({ sgg_cd, dong, jibun, sgg_nm, onClose }: Props) {
                 {data.buildings.length === 0 ? (
                   <div className="reg-empty">해당 지번의 건축물대장 정보 없음</div>
                 ) : (
-                  <table className="reg-table">
-                    <thead>
-                      <tr>
-                        <th>지번</th>
-                        <th>건물명</th>
-                        <th>주용도</th>
-                        <th>대지(㎡)</th>
-                        <th>건축(㎡)</th>
-                        <th>연면적(㎡)</th>
-                        <th>사용승인</th>
-                        <th>상태</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.buildings.map((b, i) => (
-                        <tr key={i}>
-                          <td>
-                            {b.bun}
-                            {b.ji && b.ji !== "0" ? `-${b.ji}` : ""}
-                          </td>
-                          <td>{b.bld_nm || "-"}</td>
-                          <td>{b.main_purps_nm || "-"}</td>
-                          <td>
-                            {b.plat_area != null ? b.plat_area.toLocaleString() : "-"}
-                          </td>
-                          <td>
-                            {b.arch_area != null ? b.arch_area.toLocaleString() : "-"}
-                          </td>
-                          <td>
-                            {b.tot_area != null ? b.tot_area.toLocaleString() : "-"}
-                          </td>
-                          <td>{formatYmd(b.use_apr_day)}</td>
-                          <td>
-                            {b.status === "closed"
-                              ? `멸실 (${formatYmd(b.demolish_day)})`
-                              : "활성"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="reg-bldg-list">
+                    {data.buildings.map((b, i) => (
+                      <BuildingCard key={i} b={b} />
+                    ))}
+                  </div>
                 )}
               </Section>
             </>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function BuildingCard({ b }: { b: import("@/lib/api").BuildingInfo }) {
+  const jibunLabel = `${b.bun}${b.ji && b.ji !== "0" ? `-${b.ji}` : ""}`;
+  const statusLabel =
+    b.status === "closed"
+      ? `멸실 ${formatYmd(b.demolish_day)}`
+      : "활성";
+  const floorsLabel = (() => {
+    const g = b.ground_floors ?? 0;
+    const u = b.under_floors ?? 0;
+    if (g <= 0 && u <= 0) return "";
+    const parts: string[] = [];
+    if (u > 0) parts.push(`지하 ${u}층`);
+    if (g > 0) parts.push(`지상 ${g}층`);
+    return parts.join(" / ");
+  })();
+  const fmt = (v: number | null | undefined, unit = "") =>
+    v == null || v === 0 ? "-" : `${v.toLocaleString()}${unit}`;
+  const use = b.etc_purps && b.etc_purps !== b.main_purps_nm
+    ? `${b.main_purps_nm} (${b.etc_purps})`
+    : b.main_purps_nm || "-";
+
+  return (
+    <div className="reg-bldg-card">
+      <div className="reg-bldg-head">
+        <div className="reg-bldg-title">
+          <span className="reg-bldg-jibun">{jibunLabel}</span>
+          {b.bld_nm && <span className="reg-bldg-name">{b.bld_nm}</span>}
+        </div>
+        <div className="reg-bldg-status">
+          {statusLabel} · 사용승인 {formatYmd(b.use_apr_day)}
+        </div>
+      </div>
+      <div className="reg-bldg-grid">
+        <KV k="주용도" v={use} wide />
+        {floorsLabel && <KV k="층수" v={floorsLabel} />}
+        {b.struct_nm && <KV k="구조" v={b.struct_nm} />}
+        {b.roof_nm && <KV k="지붕" v={b.roof_nm} />}
+        <KV k="대지면적" v={fmt(b.plat_area, " ㎡")} />
+        <KV k="건축면적" v={fmt(b.arch_area, " ㎡")} />
+        <KV k="연면적" v={fmt(b.tot_area, " ㎡")} />
+        {b.coverage_ratio != null && (
+          <KV k="건폐율" v={`${b.coverage_ratio}%`} />
+        )}
+        {b.floor_ratio != null && <KV k="용적률" v={`${b.floor_ratio}%`} />}
+        {b.household_cnt != null && b.household_cnt > 0 && (
+          <KV k="세대수" v={`${b.household_cnt} 세대`} />
+        )}
+        {b.family_cnt != null && b.family_cnt > 0 && (
+          <KV k="가구수" v={`${b.family_cnt} 가구`} />
+        )}
+        {b.parking_cnt != null && b.parking_cnt > 0 && (
+          <KV k="주차" v={`${b.parking_cnt} 대`} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KV({ k, v, wide }: { k: string; v: string; wide?: boolean }) {
+  return (
+    <div className={`reg-kv${wide ? " wide" : ""}`}>
+      <span className="reg-kv-k">{k}</span>
+      <span className="reg-kv-v">{v}</span>
     </div>
   );
 }

@@ -679,3 +679,74 @@ body {
     padding: 4px 6px;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   건축물 카드 (대장 모달)
+   ────────────────────────────────────────────────────────── */
+.reg-bldg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.reg-bldg-card {
+  border: 1px solid #e6ebf2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fbfcfe;
+}
+.reg-bldg-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.reg-bldg-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.reg-bldg-jibun {
+  font-weight: 700;
+  color: #222;
+}
+.reg-bldg-name {
+  font-size: 13px;
+  color: #555;
+}
+.reg-bldg-status {
+  font-size: 11px;
+  color: #888;
+}
+.reg-bldg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.reg-kv {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  min-width: 0;
+}
+.reg-kv.wide {
+  grid-column: 1 / -1;
+}
+.reg-kv-k {
+  flex: 0 0 56px;
+  color: #888;
+}
+.reg-kv-v {
+  flex: 1 1 auto;
+  color: #222;
+  word-break: break-word;
+}
+
+@media (max-width: 600px) {
+  .reg-bldg-grid {
+    grid-template-columns: 1fr;
+  }
+}
